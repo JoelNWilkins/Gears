@@ -4,9 +4,7 @@
 import matplotlib.pyplot as plt
 # math is the module to use trigonometric functions etc.
 import math
-# pickle is used to save the data to a file
-# I may try to change this to a csv file which would be better
-import pickle
+# csv is the module used to read and write to csv files
 import csv
 import random
 
@@ -219,11 +217,8 @@ if __name__ == "__main__":
 
     x, y = gearPoints(rb, R, n, gapRatio1, step)
 
-    # This adds a dictionary of the gear parameters
-    data = [{"rb": rb, "R": R, "n": n, "angle": angle}]
-    data = []
     # This adds the list of x and y values in coordinate form
-    data.extend(list(zip(x, y)))
+    data = list(zip(x, y))
 
     # This writes the gear points to a csv file to be read by the gearModel
     with open("gearData.csv", "w", newline="") as f:

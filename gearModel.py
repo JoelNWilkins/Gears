@@ -4,9 +4,7 @@
 from vpython import *
 # math is the module to use trigonometric functions etc.
 import math
-# pickle is used to save the data to a file
-# I may try to change this to a csv file which would be better
-import pickle
+# csv is the module used to read and write to csv files
 import csv
 # This imports functions from the gear generating program
 from gearGenerator import *
