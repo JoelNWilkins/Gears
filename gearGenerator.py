@@ -2,108 +2,10 @@
 
 # matplotlib is the module to generate the graphs
 import matplotlib.pyplot as plt
-# math is the module to use trigonometric functions etc.
-import math
-# csv is the module used to read and write to csv files
-import csv
+# This imports the core functions for working with gears
+# We do not have to import csv, math etc. as this is done in gearCore
+from gearCore import *
 import random
-
-def frange(start, end, step):
-    # A function to return a list of float values
-    # between 2 points with a certain step
-
-    # If start is smaller than end the values will be ascending
-    if start < end:
-        values = []
-        total = start
-        while total < end:
-            values.append(total)
-            total += step
-        values.append(end)
-        return values
-
-    # If start is greater than end the values will be descending
-    elif start > end:
-        values = []
-        total = start
-        while total > end:
-            values.append(total)
-            total -= step
-        values.append(end)
-        return values
-
-def involute(alpha):
-    return math.tan(alpha) - alpha
-
-def getAlpha(r, rb):
-    return math.acos(rb / r)
-
-def getR(rb, alpha):
-    # This is a rearranged version of getAlpha
-    return rb / math.cos(alpha)
-
-def pythagoras(point1, point2):
-    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)    
-
-def getDeltaTheta(r, s):
-    return math.acos((2 * r**2 - s**2) / (2 * r**2))
-
-def cartesian(r, theta):
-    # Converts polar coordinates to cartesian coordinates
-    x = r * math.cos(theta)
-    y = r * math.sin(theta)
-    return (x, y)
-
-def convertPolar(x, y):
-    # Converts a list of x and y values to polar form
-    a = []
-    b = []
-    for i in range(len(x)):
-        a.append(math.sqrt(x[i]**2 + y[i]**2))
-        b.append(math.atan(y[i] / x[i]))
-    return (a, b)
-
-def points(r, alpha):
-    # This generates the curved part of the tooth
-    if alpha > 0:
-        x, y = cartesian(r, involute(alpha))
-    else:
-        x, y = cartesian(r, -involute(abs(alpha)))
-    return (x, y)
-
-def getPoints(rb, theta):
-    # This is a cartesian version of points and is less good
-    a = rb * math.cos(theta)
-    b = rb * math.sin(theta)
-    x = a + math.sin(theta) * theta * rb
-    y = b - math.cos(theta) * theta * rb
-    return (x, y)
-
-def rotate(point, theta, centre):
-    # This can be used to rotate a point about a centre
-    x = (point[0] - centre[0]) * math.cos(theta) - (point[1] - centre[1]) * math.sin(theta)
-    y = (point[0] - centre[0]) * math.sin(theta) + (point[1] - centre[1]) * math.cos(theta)
-    return (x, y)
-
-def rotatePoints(points, theta, centre):
-    # This implements the rotate function for a list of points
-    a = []
-    b = []
-    for p in points:
-        point = rotate(p, theta, centre)
-        a.append(point[0])
-        b.append(point[1])
-    return list(zip(a, b))
-
-def rotatePointList(x, y, theta, centre):
-    # This implements the rotate function on a list of x and y values
-    a = []
-    b = []
-    for i in range(len(x)):
-        point = rotate((x[i], y[i]), theta, centre)
-        a.append(point[0])
-        b.append(point[1])
-    return (a, b)
 
 def gearPoints(rb, R, n, gapRatio1, step):
     # This is the main function to generate a gear
@@ -220,21 +122,14 @@ if __name__ == "__main__":
     # This adds the list of x and y values in coordinate form
     data = list(zip(x, y))
 
-    # This writes the gear points to a csv file to be read by the gearModel
-    with open("gearData.csv", "w", newline="") as f:
-        csvwriter = csv.writer(f, delimiter=",")
+    # This creates a dictionary of the gear parameters
+    parameters = {"rb": rb, "R": R, "n": n, "angle": angle}
 
-        for item in data:
-            csvwriter.writerow([item[0], item[1]])
+    # This writes the gear points to a csv file to be read by the gearModel
+    saveDataToCSV("gearData.csv", data)
 
     # This writes the gear parameters to a csv file to be read by the gearModel
-    with open("gearParameters.csv", "w", newline="") as f:
-        csvwriter = csv.writer(f, delimiter=",")
-
-        csvwriter.writerow(["rb", rb])
-        csvwriter.writerow(["R", R])
-        csvwriter.writerow(["n", n])
-        csvwriter.writerow(["angle", angle])
+    saveParametersToCSV("gearParameters.csv", parameters)
 
     # This will draw 2 circles with radius rb and R
     # Uncomment this if you want to see how the gear lies on these circles

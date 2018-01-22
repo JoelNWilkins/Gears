@@ -2,12 +2,9 @@
 
 # vpython is the module for 3D graphics
 from vpython import *
-# math is the module to use trigonometric functions etc.
-import math
-# csv is the module used to read and write to csv files
-import csv
-# This imports functions from the gear generating program
-from gearGenerator import *
+# This imports the core functions for working with gears
+# We do not have to import csv, math etc. as this is done in gearCore
+from gearCore import *
 
 class SpeedControl(slider):
     # A class to control the slider which changes the gear speed
@@ -38,26 +35,10 @@ scene.select()
 captionText = []
 
 # Load the gear points from a csv file
-data = []
-with open("gearData.csv", "r", newline="") as f:
-    csvreader = csv.reader(f, delimiter=",")
-
-    for row in csvreader:
-        data.append([])
-        for cell in row:
-            data[-1].append(float(cell))
+data = readDataFromCSV("gearData.csv")
 
 # Load the parameters from a csv file
-parameters = {}
-with open("gearParameters.csv", "r", newline="") as f:
-    csvreader = csv.reader(f, delimiter=",")
-
-    intValues = ["n"]
-    for row in csvreader:
-        if row[0] in intValues:
-            parameters[row[0]] = int(row[1])
-        else:
-            parameters[row[0]] = float(row[1])
+parameters = readParametersFromCSV("gearParameters.csv")
 
 # Create a 2D profile of the gear
 gearProfile = shapes.points(pos=data)
