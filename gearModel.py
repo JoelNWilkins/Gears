@@ -7,6 +7,7 @@ import math
 # pickle is used to save the data to a file
 # I may try to change this to a csv file which would be better
 import pickle
+import csv
 # This imports functions from the gear generating program
 from gearGenerator import *
 
@@ -38,13 +39,27 @@ scene.select()
 # A list of the items in the caption
 captionText = []
 
-# Load the data from the file
-with open("gearData.pkl", "rb") as f:
-    data = pickle.load(f)
+# Load the gear points from a csv file
+data = []
+with open("gearData.csv", "r", newline="") as f:
+    csvreader = csv.reader(f, delimiter=",")
 
-# Get the gear parameters and remove them from the data
-parameters = data[0]
-data = data[1:]
+    for row in csvreader:
+        data.append([])
+        for cell in row:
+            data[-1].append(float(cell))
+
+# Load the parameters from a csv file
+parameters = {}
+with open("gearParameters.csv", "r", newline="") as f:
+    csvreader = csv.reader(f, delimiter=",")
+
+    intValues = ["n"]
+    for row in csvreader:
+        if row[0] in intValues:
+            parameters[row[0]] = int(row[1])
+        else:
+            parameters[row[0]] = float(row[1])
 
 # Create a 2D profile of the gear
 gearProfile = shapes.points(pos=data)

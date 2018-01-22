@@ -7,6 +7,7 @@ import math
 # pickle is used to save the data to a file
 # I may try to change this to a csv file which would be better
 import pickle
+import csv
 import random
 
 def frange(start, end, step):
@@ -213,30 +214,32 @@ if __name__ == "__main__":
     R = 1.19
     n = 20
     gapRatio1 = 0.16
-    step = 0.05
+    step = 0.01
     angle = 2 * math.pi / n
 
     x, y = gearPoints(rb, R, n, gapRatio1, step)
 
     # This adds a dictionary of the gear parameters
     data = [{"rb": rb, "R": R, "n": n, "angle": angle}]
+    data = []
     # This adds the list of x and y values in coordinate form
     data.extend(list(zip(x, y)))
 
-    # This writes the data to a file to be read by the gearModel programs
-    with open("gearData.pkl", "wb") as f:
-        pickle.dump(data, f)
-
-    # A test of how write to a csv file, not currently working
-    """
-    with open("gearData2.csv", "wb") as f:
-        csvout = csv.writer(f, delimiter=' ',
-                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    # This writes the gear points to a csv file to be read by the gearModel
+    with open("gearData.csv", "w", newline="") as f:
+        csvwriter = csv.writer(f, delimiter=",")
 
         for item in data:
-            print(item)
-            csvout.writerow([item[0], item[1]])
-    """
+            csvwriter.writerow([item[0], item[1]])
+
+    # This writes the gear parameters to a csv file to be read by the gearModel
+    with open("gearParameters.csv", "w", newline="") as f:
+        csvwriter = csv.writer(f, delimiter=",")
+
+        csvwriter.writerow(["rb", rb])
+        csvwriter.writerow(["R", R])
+        csvwriter.writerow(["n", n])
+        csvwriter.writerow(["angle", angle])
 
     # This will draw 2 circles with radius rb and R
     # Uncomment this if you want to see how the gear lies on these circles
@@ -250,9 +253,10 @@ if __name__ == "__main__":
     
     # Generate some random points and test if they are inside the gear
     # This is to test the inside function
+    """
     a, b = convertPolar(x, y)
     pointsToCheck = [(1, 0), (0, 1)]
-    for i in range(1):
+    for i in range(100):
         pointsToCheck.append((random.uniform(-2, 2), random.uniform(-2, 2)))
 
     for p in pointsToCheck:
@@ -266,6 +270,7 @@ if __name__ == "__main__":
         if var == False:
             # The point will be red if it is outside the gear
             plt.plot(p[0], p[1], "ro")
+    """
 
     # This will draw the gear on a graph
     plt.plot(x, y, color="red")
