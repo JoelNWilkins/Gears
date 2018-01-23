@@ -23,6 +23,8 @@ import os
 # Configure matplotlib to use the tkinter backend
 matplotlib.use("TkAgg")
 
+matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
+
 class GraphFrame(tk.Frame):
     # A frame containing the matplotlib graph
     

@@ -5,7 +5,33 @@
 from gearCore import *
 # Also import the gearViewer program to display what the gear looks like
 from gearViewer import *
+from tkinter import ttk
 import random
+
+class InputFrame(tk.Frame):
+    # A frame containing the input fields for the parameters
+
+    def __init__(self, root):
+        # Create a frame in the root window
+        tk.Frame.__init__(self, root)
+
+        # Save the root for later use
+        self.root = root
+
+        label = tk.Label(self, text="""This is where the user would input values to generate the gear.
+The user would also be able to press generate on this page.
+I need to add a save option to the file menu to save the data.""")
+        label.pack()
+
+        """
+        label1 = tk.Text(self, width=5, height=2, borderwidth=0, background=self.cget("background"))
+        label1.tag_configure("subscript", offset=-4)
+        label1.insert("insert", "r", "", "b", "subscript", ":")
+        label1.configure(state="disabled")
+        label1.grid(row=0, column=0, sticky="e")
+        entry1 = tk.Entry(self)
+        entry1.grid(row=0, column=1, sticky="n")
+        """
 
 def gearPoints(rb, R, n, gapRatio1, step):
     # This is the main function to generate a gear
@@ -173,9 +199,15 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Generator")
+    # Add notebook to manage different pages
+    notebook = ttk.Notebook(root)
+    notebook.pack()
+    # Add the InputFrame
+    frame1 = InputFrame(root)
+    notebook.add(frame1, text="Generator")
     # Add the GraphFrame and MenuBar objects
-    frame = GraphFrame(root, fileName=fileName)
-    frame.pack()
-    menubar = MenuBar(root, frame)
+    frame2 = GraphFrame(root, fileName=fileName)
+    notebook.add(frame2, text="Viewer")
+    menubar = MenuBar(root, frame2)
     # Run the window
     root.mainloop()
