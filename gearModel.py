@@ -34,11 +34,39 @@ scene.select()
 # A list of the items in the caption
 captionText = []
 
+# Create a list of all the files in the data directory
+path = os.getcwd() + "\\data"
+files = os.listdir(path)
+
+# Find the files with a .csv file extension
+csvFiles = []
+for file in files:
+    if file.split(".")[-1] == "csv" and "Data" in file:
+        csvFiles.append(file)
+
+print("CSV files in directory {}".format(path))
+
+for i in range(len(csvFiles)):
+    print("{}: {}".format(i + 1, csvFiles[i]))
+
+run = True
+while run:
+    try:
+        number = int(input("Enter the file number to open: "))
+        if number <= len(csvFiles) and number > 0:
+            run = False
+    except:
+        print("Invalid input.")
+
+# Get the number of the file to open
+fileToOpen = csvFiles[number - 1]
+fileNumber = fileToOpen.split(".")[-2].split("gearData")[-1]
+
 # Load the gear points from a csv file
-data = readDataFromCSV("gearData.csv")
+data = readDataFromCSV(path + "\\gearData{}.csv".format(fileNumber))
 
 # Load the parameters from a csv file
-parameters = readParametersFromCSV("gearParameters.csv")
+parameters = readParametersFromCSV(path + "\\gearParameters{}.csv".format(fileNumber))
 
 # Create a 2D profile of the gear
 gearProfile = shapes.points(pos=data)

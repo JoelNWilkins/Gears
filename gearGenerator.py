@@ -3,8 +3,8 @@
 # This imports the core functions for working with gears
 # We do not have to import csv, math etc. as this is done in gearCore
 from gearCore import *
-# matplotlib is the module to generate the graphs
-import matplotlib.pyplot as plt
+# Also import the gearViewer program to display what the gear looks like
+from gearViewer import *
 import random
 
 def gearPoints(rb, R, n, gapRatio1, step):
@@ -108,8 +108,7 @@ def intersecting(gearPoints1, centre1, angle1, gearPoints2, centre2, angle2):
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
 if __name__ == "__main__":
-    lines = []
-
+    # Set the parameters to generate the gear
     rb = 1
     R = 1.19
     n = 20
@@ -117,6 +116,7 @@ if __name__ == "__main__":
     step = 0.01
     angle = 2 * math.pi / n
 
+    # Generate the gear from the parameters
     x, y = gearPoints(rb, R, n, gapRatio1, step)
 
     # This adds the list of x and y values in coordinate form
@@ -125,15 +125,23 @@ if __name__ == "__main__":
     # This creates a dictionary of the gear parameters
     parameters = {"rb": rb, "R": R, "n": n, "angle": angle}
 
+    run = True
+    while run:
+        number = int(input("Enter the file number to save as: "))
+        if type(number) == int:
+            run = False
+
     # This writes the gear points to a csv file to be read by the gearModel
-    saveDataToCSV("gearData1.csv", data)
+    fileName = "data\\gearData{}.csv".format(number)
+    saveDataToCSV(fileName, data)
 
     # This writes the gear parameters to a csv file to be read by the gearModel
-    saveParametersToCSV("gearParameters1.csv", parameters)
+    saveParametersToCSV("data\\gearParameters{}.csv".format(number), parameters)
 
     # This will draw 2 circles with radius rb and R
     # Uncomment this if you want to see how the gear lies on these circles
     """
+    lines = []
     lines.append(circlePoints(rb, step))
     lines.append(circlePoints(R, step))
 
@@ -162,8 +170,12 @@ if __name__ == "__main__":
             plt.plot(p[0], p[1], "ro")
     """
 
-    # This will draw the gear on a graph
-    plt.plot(x, y, color="red")
-    # The equal means that the graph will not be distorted
-    plt.axis("equal")
-    plt.show()
+    # Create a new tkinter window
+    root = tk.Tk()
+    root.title("Gear Generator")
+    # Add the GraphFrame and MenuBar objects
+    frame = GraphFrame(root, fileName=fileName)
+    frame.pack()
+    menubar = MenuBar(root, frame)
+    # Run the window
+    root.mainloop()
