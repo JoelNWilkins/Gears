@@ -1,10 +1,10 @@
 # Import required modules
 
-# matplotlib is the module to generate the graphs
-import matplotlib.pyplot as plt
 # This imports the core functions for working with gears
 # We do not have to import csv, math etc. as this is done in gearCore
 from gearCore import *
+# matplotlib is the module to generate the graphs
+import matplotlib.pyplot as plt
 import random
 
 def gearPoints(rb, R, n, gapRatio1, step):
@@ -126,10 +126,10 @@ if __name__ == "__main__":
     parameters = {"rb": rb, "R": R, "n": n, "angle": angle}
 
     # This writes the gear points to a csv file to be read by the gearModel
-    saveDataToCSV("gearData.csv", data)
+    saveDataToCSV("gearData1.csv", data)
 
     # This writes the gear parameters to a csv file to be read by the gearModel
-    saveParametersToCSV("gearParameters.csv", parameters)
+    saveParametersToCSV("gearParameters1.csv", parameters)
 
     # This will draw 2 circles with radius rb and R
     # Uncomment this if you want to see how the gear lies on these circles

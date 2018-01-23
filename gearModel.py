@@ -1,10 +1,10 @@
 # Import required modules
 
-# vpython is the module for 3D graphics
-from vpython import *
 # This imports the core functions for working with gears
 # We do not have to import csv, math etc. as this is done in gearCore
 from gearCore import *
+# vpython is the module for 3D graphics
+from vpython import *
 
 class SpeedControl(slider):
     # A class to control the slider which changes the gear speed
