@@ -4,15 +4,19 @@
 # We do not have to import csv, math etc. as this is done in gearCore
 from gearCore import *
 # tkinter is used to create the GUI
+# ttk is an extension of tkinter and provides more advanced widgets
 # askopenfilename opens a file explorer window to select the file to open
+# asksaveasfilename opens a file explorer window to save the file
 try:
     # The lower case t is for use in python 3
     import tkinter as tk
-    from tkinter.filedialog import askopenfilename
+    from tkinter import ttk
+    from tkinter.filedialog import askopenfilename, asksaveasfilename
 except:
     # The upper case T is for use in python 2
     import Tkinter as tk
-    from tkFileDialog import askopenfilename
+    import ttk
+    from tkFileDialog import askopenfilename, asksaveasfilename
 # matplotlib is the module to generate the graphs
 # A tkinter backend is required to use matplotlib in tkinter window
 import matplotlib
@@ -22,7 +26,7 @@ import os
 
 # Configure matplotlib to use the tkinter backend
 matplotlib.use("TkAgg")
-
+# Change the default directory for saving figures
 matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
 
 class GraphFrame(tk.Frame):
