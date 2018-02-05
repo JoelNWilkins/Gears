@@ -4,6 +4,9 @@
 import math
 # csv is the module used to read and write to csv files
 import csv
+# xlrd and xlwt are the excel workbook reader and writer modules
+import xlrd
+import xlwt
 
 def frange(start, end, step):
     # A function to return a list of float values
@@ -30,26 +33,36 @@ def frange(start, end, step):
         return values
 
 def involute(alpha):
+    # This function generates the curve for the tooth
     return math.tan(alpha) - alpha
 
-def getAlpha(r, rb):
-    return math.acos(rb / r)
+def getAlpha(r_b, r):
+    # This finds the angle to input into the involute function
+    return math.acos(r_b / r)
 
-def getR(rb, alpha):
+def getR(r_b, alpha):
     # This is a rearranged version of getAlpha
-    return rb / math.cos(alpha)
+    return r_b / math.cos(alpha)
 
-def pythagoras(point1, point2):
+def getDistance(point1, point2):
+    # This uses pythagoras' theorem to find the distance between 2 points
     return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)    
 
 def getDeltaTheta(r, s):
+    # This finds the angle between points on the curve
     return math.acos((2 * r**2 - s**2) / (2 * r**2))
 
-def cartesian(r, theta):
+def getCartesian(r, theta):
     # Converts polar coordinates to cartesian coordinates
     x = r * math.cos(theta)
     y = r * math.sin(theta)
     return (x, y)
+
+def getPolar(x, y):
+    # Converts cartesian coordinates to polar coordinates
+    r = math.sqrt(x**2 + y**2)
+    theta = math.atan(y / x)
+    return (r, theta)
 
 def convertPolar(x, y):
     # Converts a list of x and y values to polar form
@@ -63,17 +76,9 @@ def convertPolar(x, y):
 def points(r, alpha):
     # This generates the curved part of the tooth
     if alpha > 0:
-        x, y = cartesian(r, involute(alpha))
+        x, y = getCartesian(r, involute(alpha))
     else:
-        x, y = cartesian(r, -involute(abs(alpha)))
-    return (x, y)
-
-def getPoints(rb, theta):
-    # This is a cartesian version of points and is less good
-    a = rb * math.cos(theta)
-    b = rb * math.sin(theta)
-    x = a + math.sin(theta) * theta * rb
-    y = b - math.cos(theta) * theta * rb
+        x, y = getCartesian(r, -involute(abs(alpha)))
     return (x, y)
 
 def rotate(point, theta, centre):
@@ -102,59 +107,89 @@ def rotatePointList(x, y, theta, centre):
         b.append(point[1])
     return (a, b)
 
-def saveDataToCSV(fileName, data):
-    # This writes the gear points to a csv file to be read by the gearModel
-    try:
-        with open(fileName, "w", newline="") as f:
-            csvwriter = csv.writer(f, delimiter=",")
+def circlePoints(r, step):
+    # This function will return a list of points for a circle of radius r
+    x = []
+    y = []
+    for theta in frange(0, 2 * math.pi, getDeltaTheta(r, step)):
+        point = getCartesian(r, theta)
+        x.append(point[0])
+        y.append(point[1])
+    return (x, y)
 
-            for item in data:
-                csvwriter.writerow([item[0], item[1]])
-    except PermissionError:
-        print("{} is already open, please close the file to run the program.".format(fileName))
+def calculateParameters(z, alpha, m):
+    d = m * z
+    r = d / 2
+    d_b = d * math.cos(math.radians(alpha))
+    r_b = d_b / 2
+    h_a = m
+    h_f = 1.25 * m
+    h = h_a + h_f
+    c = h - 2 * h_a
+    h_w = h - c
+    r_a = r + h_a
+    d_a = 2 * r_a
+    r_f = r - h_f
+    d_f = 2 * r_f
+    p = math.pi * m
+    p_b = p * math.cos(math.radians(alpha))
+    s = p / 2
+    s_b = p_b / 2
+    angle = 2 * math.pi / z
 
-def saveParametersToCSV(fileName, parameters):
-    # This writes the gear parameters to a csv file to be read by the gearModel
-    try:
-        with open(fileName, "w", newline="") as f:
-            csvwriter = csv.writer(f, delimiter=",")
+    parameters = {"z": z, "alpha": alpha, "m": m, "d": d, "r": r, "d_b": d_b,
+                  "r_b": r_b, "h_a": h_a, "h_f": h_f, "h": h, "c": c,
+                  "h_w": h_w, "r_a": r_a, "d_a": d_a, "r_f": r_f, "d_f": d_f,
+                  "p": p, "p_b": p_b, "s": s, "s_b": s_b, "angle": angle}
 
-            for key in parameters.keys():
-                csvwriter.writerow([key, parameters[key]])
-    except PermissionError:
-        print("{} is already open, please close the file to run the program.".format(fileName))
+    return parameters
 
-def readDataFromCSV(fileName):
-    # Load the gear points from a csv file
-    try:
-        data = []
-        with open(fileName, "r", newline="") as f:
-            csvreader = csv.reader(f, delimiter=",")
+def readData(fileName):
+    # Read from an xls file
+    # Open the file as a workbook
+    workbook = xlrd.open_workbook(fileName)
 
-            for row in csvreader:
-                data.append([])
-                for cell in row:
-                    data[-1].append(float(cell))
-        return data
-    except PermissionError:
-        print("{} is already open, please close the file to run the program.".format(fileName))
+    # Open the 2 sheets containing the data
+    pointsSheet = workbook.sheet_by_name("Points")
+    parametersSheet = workbook.sheet_by_name("Parameters")
 
-def readParametersFromCSV(fileName):
-    # Load the parameters from a csv file
-    try:
-        parameters = {}
-        with open(fileName, "r", newline="") as f:
-            csvreader = csv.reader(f, delimiter=",")
+    # Iterate through the points and add them to a list of x and y values
+    points = []
+    for row in range(pointsSheet.nrows):
+        points.append([])
+        points[row].append(pointsSheet.cell(row, 0).value)
+        points[row].append(pointsSheet.cell(row, 1).value)
 
-            intValues = ["n"]
-            for row in csvreader:
-                if row[0] in intValues:
-                    parameters[row[0]] = int(row[1])
-                else:
-                    parameters[row[0]] = float(row[1])
-        return parameters
-    except PermissionError:
-        print("{} is already open, please close the file to run the program.".format(fileName))
+    # Iterate through the parameters and create a dictionary of parameters
+    parameters = {}
+    for row in range(parametersSheet.nrows):
+        parameters[parametersSheet.cell(row, 0).value] = parametersSheet.cell(row, 1).value
+
+    return points, parameters
+
+def writeData(fileName, points, parameters):
+    # Write to an xls file
+    # Create a new workbook
+    workbook = xlwt.Workbook()
+
+    # Add the 2 sheets to contain the data
+    pointsSheet = workbook.add_sheet("Points")
+    parametersSheet = workbook.add_sheet("Parameters")
+
+    # Iterate through the points and add them to the points sheet
+    for i in range(len(points)):
+        pointsSheet.write(i, 0, points[i][0])
+        pointsSheet.write(i, 1, points[i][1])
+
+    # Iterate through the parameters and add them to the parameters sheet
+    i = 0
+    for key in parameters.keys():
+        parametersSheet.write(i, 0, key)
+        parametersSheet.write(i, 1, parameters[key])
+        i += 1
+
+    # Save the workbook to a file
+    workbook.save(fileName)
 
 if __name__ == "__main__":
     print("This module is intended to be imported and not run directly.")

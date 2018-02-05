@@ -47,24 +47,27 @@ class GraphFrame(tk.Frame):
 
         if fileName != None:
             try:
-                # Load the gear points from a csv file
-                data = readDataFromCSV(fileName)
+                # Load the gear data from an xls file
+                points, parameters = readData(fileName)
 
-                # Convert the data into a list of x and y values
-                x = []
-                y = []
-                for item in data:
-                    x.append(item[0])
-                    y.append(item[1])
+                # Convert the points into a list of x and y values
+                x, y = zip(*points)
 
                 # Plot the points by invoking the GraphFrame plot function
                 self.plot(x, y)
 
                 # Remove the path from the file name and set the title to the file name
                 if "\\" in fileName:
+                    path, name = "\\".join(fileName.split("\\")[:-1]), fileName.split("\\")[-1]
                     self.title(fileName.split("\\")[-1])
                 else:
+                    path, name = "/".join(fileName.split("/")[:-1]), fileName.split("/")[-1]
                     self.title(fileName.split("/")[-1])
+
+                self.addCircle(parameters["r"], style="b:")
+                self.addCircle(parameters["r_b"], style="g:")
+                self.addCircle(parameters["r_a"], style="m:")
+                self.addCircle(parameters["r_f"], style="y:")
             except:
                 pass
 
@@ -80,19 +83,29 @@ class GraphFrame(tk.Frame):
         self.toolbar.update()
         self.canvas._tkcanvas.pack()
 
-    def plot(self, x, y, colour=None):
+    def plot(self, x, y, style=None):
         # Remove any previous gears
         self.axis.clear()
         
-        if colour == None:
-            colour = "red"
+        if style == None:
+            style = "r"
 
         # Plot the points onto the graph
-        self.axis.plot(x, y, color=colour)
+        self.axis.plot(x, y, style)
 
     def title(self, text):
         # Change the title of the plot
         self.axis.set_title(text)
+
+    def addCircle(self, r, style=None):
+        # Generate the list of points on the circle of radius r
+        x, y = circlePoints(r, 0.01)
+
+        if style == None:
+            style = "r"
+
+        # Plot the points onto the graph
+        self.axis.plot(x, y, style)
 
 class MenuBar(tk.Menu):
     # A menubar containing drop-down menus such as file
@@ -109,23 +122,19 @@ class MenuBar(tk.Menu):
         # Create a sub-menu to go on the menubar
         self.fileMenu = tk.Menu(self, tearoff=False)
         # Bind the command openFile to the open button
-        self.fileMenu.add_command(label="Open...", command=self.openFile)
+        self.fileMenu.add_command(label="Open...", command=self.openFile, accelerator="Ctrl+O")
         # Add the sub-menu to the menubar
         self.add_cascade(label="File", menu=self.fileMenu)
 
     def openFile(self, *args, **kwargs):
-        # Ask the user to select a csv file to open
-        fileName = askopenfilename(initialdir="data", filetypes=[("CSV file","*.csv")], defaultextension=".csv")
+        # Ask the user to select an xls file to open
+        fileName = askopenfilename(initialdir="data", filetypes=[("Excel 97-2003 Workbook","*.xls")], defaultextension=".csv")
 
-        # Load the gear points from a csv file
-        data = readDataFromCSV(fileName)
+        # Load the gear data from an xls file
+        points, parameters = readData(fileName)
 
-        # Convert the data into a list of x and y values
-        x = []
-        y = []
-        for item in data:
-            x.append(item[0])
-            y.append(item[1])
+        # Convert the points into a list of x and y values
+        x, y = zip(*points)
 
         # Plot the points by invoking the GraphFrame plot function
         self.frame.plot(x, y)
@@ -135,6 +144,12 @@ class MenuBar(tk.Menu):
             self.frame.title(fileName.split("\\")[-1])
         else:
             self.frame.title(fileName.split("/")[-1])
+
+        # Add the circles to the graph
+        self.frame.addCircle(parameters["r"], style="b:")
+        self.frame.addCircle(parameters["r_b"], style="g:")
+        self.frame.addCircle(parameters["r_a"], style="r:")
+        self.frame.addCircle(parameters["r_f"], style="y:")
 
         # Update the canvas to show the gear
         self.frame.canvas.draw()
@@ -146,17 +161,21 @@ if __name__ == "__main__":
     path = os.getcwd() + "\\data"
     files = os.listdir(path)
 
-    # Find the files with a .csv file extension
-    csvFiles = []
+    # Find the files with a .xls file extension
+    xlsFiles = []
     for file in files:
-        if file.split(".")[-1] == "csv" and "Data" in file:
-            csvFiles.append(path + "\\" + file)
+        if file.split(".")[-1] == "xls":
+            xlsFiles.append(path + "\\" + file)
+
+    # This is for if no xls files are found
+    if len(xlsFiles) == 0:
+        xlsFiles.append(None)
     
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Viewer")
     # Add the GraphFrame and MenuBar objects
-    frame = GraphFrame(root, fileName=csvFiles[0])
+    frame = GraphFrame(root, fileName=xlsFiles[0])
     frame.pack()
     menubar = MenuBar(root, frame)
     # Run the window
