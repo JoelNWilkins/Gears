@@ -2,11 +2,11 @@
 
 # math is the module to use trigonometric functions etc.
 import math
-# csv is the module used to read and write to csv files
-import csv
 # xlrd and xlwt are the excel workbook reader and writer modules
 import xlrd
 import xlwt
+# os is required to find the files in the data directory etc.
+import os
 
 def frange(start, end, step):
     # A function to return a list of float values
@@ -95,6 +95,7 @@ def rotatePoints(points, theta, centre):
         point = rotate(p, theta, centre)
         a.append(point[0])
         b.append(point[1])
+
     return list(zip(a, b))
 
 def rotatePointList(x, y, theta, centre):
@@ -118,31 +119,61 @@ def circlePoints(r, step):
     return (x, y)
 
 def calculateParameters(z, alpha, m):
+    # Calculate the reference diameter and radius
     d = m * z
     r = d / 2
+    # Calculate the base diameter and radius
     d_b = d * math.cos(math.radians(alpha))
     r_b = d_b / 2
+    # Calculate the height of the addendum and dedendum
     h_a = m
     h_f = 1.25 * m
+    # Calculate the total height of the tooth
     h = h_a + h_f
+    # Calculate the clearance of the tooth
     c = h - 2 * h_a
+    # Calculate the working height of the tooth
     h_w = h - c
-    r_a = r + h_a
-    d_a = 2 * r_a
-    r_f = r - h_f
-    d_f = 2 * r_f
+    # Calculate the tip diameter and radius
+    d_a = d + 2 * h_a
+    r_a = d_a / 2
+    # Calculate the root diameter and radius
+    d_f = d - 2 * h_f
+    r_f = d_f / 2
+    # Calculate the pitch
     p = math.pi * m
+    # Calculate the base pitch
     p_b = p * math.cos(math.radians(alpha))
+    # Calculate the tooth thickness
     s = p / 2
     s_b = p_b / 2
+    # Calculate the angle for one tooth
     angle = 2 * math.pi / z
 
+    # Create a dictionary of the parameters
     parameters = {"z": z, "alpha": alpha, "m": m, "d": d, "r": r, "d_b": d_b,
                   "r_b": r_b, "h_a": h_a, "h_f": h_f, "h": h, "c": c,
                   "h_w": h_w, "r_a": r_a, "d_a": d_a, "r_f": r_f, "d_f": d_f,
                   "p": p, "p_b": p_b, "s": s, "s_b": s_b, "angle": angle}
 
     return parameters
+
+def listXls():
+    # Create a list of all the files in the data directory
+    path = os.getcwd() + "\\data"
+    files = os.listdir(path)
+
+    # Find the files with a .xls file extension
+    xlsFiles = []
+    for file in files:
+        if file.split(".")[-1] == "xls":
+            xlsFiles.append(path + "\\" + file)
+
+    # This is for if no xls files are found
+    if len(xlsFiles) == 0:
+        xlsFiles.append(None)
+
+    return xlsFiles
 
 def readData(fileName):
     # Read from an xls file
@@ -191,5 +222,7 @@ def writeData(fileName, points, parameters):
     # Save the workbook to a file
     workbook.save(fileName)
 
+# If this program is being run directly this code will be executed
+# If this program is being imported this code will not be executed
 if __name__ == "__main__":
     print("This module is intended to be imported and not run directly.")

@@ -1,7 +1,7 @@
 # Import required modules
 
 # This imports the core functions for working with gears
-# We do not have to import csv, math etc. as this is done in gearCore
+# We do not have to import math etc. as this is done in gearCore
 from gearCore import *
 # tkinter is used to create the GUI
 # ttk is an extension of tkinter and provides more advanced widgets
@@ -22,6 +22,7 @@ except:
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
+# os is required to find the files in the data directory etc.
 import os
 
 # Configure matplotlib to use the tkinter backend
@@ -157,19 +158,8 @@ class MenuBar(tk.Menu):
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
 if __name__ == "__main__":
-    # Create a list of all the files in the data directory
-    path = os.getcwd() + "\\data"
-    files = os.listdir(path)
-
-    # Find the files with a .xls file extension
-    xlsFiles = []
-    for file in files:
-        if file.split(".")[-1] == "xls":
-            xlsFiles.append(path + "\\" + file)
-
-    # This is for if no xls files are found
-    if len(xlsFiles) == 0:
-        xlsFiles.append(None)
+    # Get a list of xls files in the data directory
+    xlsFiles = listXls()
     
     # Create a new tkinter window
     root = tk.Tk()

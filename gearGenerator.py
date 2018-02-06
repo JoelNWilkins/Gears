@@ -1,7 +1,7 @@
 # Import required modules
 
 # This imports the core functions for working with gears
-# We do not have to import csv, math etc. as this is done in gearCore
+# We do not have to import math etc. as this is done in gearCore
 from gearCore import *
 # Also import the gearViewer program to display what the gear looks like
 from gearViewer import *
@@ -9,7 +9,7 @@ from gearViewer import *
 class InputFrame(tk.Frame):
     # A frame containing the input fields for the parameters
 
-    def __init__(self, root):
+    def __init__(self, root, defaults=None):
         # Create a frame in the root window
         tk.Frame.__init__(self, root)
 
@@ -21,17 +21,26 @@ class InputFrame(tk.Frame):
         self.label1.grid(row=0, column=0, sticky="e")
         self.entry1 = tk.Entry(self)
         self.entry1.grid(row=0, column=1, sticky="w")
-        self.label2 = tk.Label(self, text="Pressure angle: ")
+        self.label2 = tk.Label(self, text="Pressure angle: (°) ")
         self.label2.grid(row=1, column=0, sticky="e")
         self.entry2 = tk.Entry(self)
         self.entry2.grid(row=1, column=1, sticky="w")
-        self.label3 = tk.Label(self, text="Module: ")
+        self.label3 = tk.Label(self, text="Module: (mm)")
         self.label3.grid(row=2, column=0, sticky="e")
         self.entry3 = tk.Entry(self)
         self.entry3.grid(row=2, column=1, sticky="w")
 
+        if defaults != None:
+            if defaults["z"] != None:
+                self.entry1.insert(0, defaults["z"])
+            if defaults["alpha"] != None:
+                self.entry2.insert(0, defaults["alpha"])
+            if defaults["m"] != None:
+                self.entry3.insert(0, defaults["m"])
+
         # Create a button to generate the gear
-        self.button = tk.Button(self, text="Generate gear", command=self.generateGear)
+        self.button = tk.Button(self, text="Generate gear",
+                                command=self.generateGear)
         self.button.grid(row=3, column=0)
 
     def generateGear(self, *args, **kwargs):
@@ -45,37 +54,36 @@ class InputFrame(tk.Frame):
 
         # Calculate the points on the gear
         # The 0.16 value should be replaced with a variable
-        x, y = gearPoints(parameters["r_b"], parameters["r_a"], parameters["z"],
-                          parameters["p"], 0.01)
+        x, y = gearPoints(parameters, 0.05 * parameters["r"])
 
         # This adds the list of x and y values in coordinate form
         points = list(zip(x, y))
 
         # Ask the user to select the file name to save as
-        fileName = asksaveasfilename(initialdir="data", filetypes=[("Excel 97-2003 Workbook","*.xls")], defaultextension=".csv")
-        # Save the gear points to a csv file
+        fileName = asksaveasfilename(initialdir="data",
+                                     filetypes=[("Excel 97-2003 Workbook",
+                                                 "*.xls")],
+                                     defaultextension=".xls")
+        # Save the gear points to an xls file
         writeData(fileName, points, parameters)
 
-def gearPoints(r_b, r_a, z, gapRatio1, step):
+def gearPoints(parameters, step):
     # This is the main function to generate a gear
     # The 2nd and 4th sections may have to be commented out
     # if the gear is being used in the 3D model
     # Including them can cause the model to not run
-    
-    angle = 2 * math.pi / z
-    # gap1 is the angle of the gap between the teeth
-    gap1 = gapRatio1 * angle
-    # gap2 is the angle of the top of the tooth
-    gap2 = angle - (2 * involute(getAlpha(r_b, r_a))) - gap1
 
+    # gap is the angle between the bases of 2 involute curves
+    gap = parameters["s"] * math.cos(parameters["alpha"]) / parameters["r"]
+    
     x = []
     y = []
-    for i in range(z):
+    for i in range(parameters["z"]):
         # Generate the leading curve
-        for r in frange(r_b, r_a, step):
-            alpha = getAlpha(r_b, r)
+        for r in frange(parameters["r_b"], parameters["r_a"], step):
+            alpha = getAlpha(parameters["r_b"], r)
             point = points(r, alpha)
-            point = rotate(point, (angle * i) + gap1, (0, 0))
+            point = rotate(point, (parameters["angle"] * i) + gap, (0, 0))
             x.append(point[0])
             y.append(point[1])
         """
@@ -86,10 +94,10 @@ def gearPoints(r_b, r_a, z, gapRatio1, step):
             y.append(point[1])"""
         
         # Generate the trailing curve
-        for r in frange(r_a, r_b, step):
-            alpha = getAlpha(r_b, r)
+        for r in frange(parameters["r_a"], parameters["r_b"], step):
+            alpha = getAlpha(parameters["r_b"], r)
             point = points(r, -alpha)
-            point = rotate(point, (angle * (i + 1)) - gap1, (0, 0))
+            point = rotate(point, (parameters["angle"] * (i + 1)) - gap, (0, 0))
             x.append(point[0])
             y.append(point[1])
         """
@@ -102,6 +110,7 @@ def gearPoints(r_b, r_a, z, gapRatio1, step):
     # Add the first values to the end to make the gear meet up
     x.append(x[0])
     y.append(y[0])
+    
     return (x, y)
 
 def inside(point, centre, a, b):
@@ -124,6 +133,7 @@ def inside(point, centre, a, b):
         return False
 
 def intersecting(gearPoints1, centre1, angle1, gearPoints2, centre2, angle2):
+    # Currently not working
     # This function tries to determine if 2 gears intersect or are touching
     x = []
     y = []
@@ -147,19 +157,8 @@ def intersecting(gearPoints1, centre1, angle1, gearPoints2, centre2, angle2):
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
 if __name__ == "__main__":
-    # Create a list of all the files in the data directory
-    path = os.getcwd() + "\\data"
-    files = os.listdir(path)
-
-    # Find the files with a .xls file extension
-    xlsFiles = []
-    for file in files:
-        if file.split(".")[-1] == "xls":
-            xlsFiles.append(path + "\\" + file)
-
-    # This is for if no xls files are found
-    if len(xlsFiles) == 0:
-        xlsFiles.append(None)
+    # Get a list of xls files in the data directory
+    xlsFiles = listXls()
 
     # Create a new tkinter window
     root = tk.Tk()
@@ -168,7 +167,7 @@ if __name__ == "__main__":
     notebook = ttk.Notebook(root)
     notebook.pack()
     # Add the InputFrame
-    frame1 = InputFrame(root)
+    frame1 = InputFrame(root, defaults={"z": None, "alpha": 20, "m": None})
     notebook.add(frame1, text="Generator")
     # Add the GraphFrame and MenuBar objects
     frame2 = GraphFrame(root, fileName=xlsFiles[0])
