@@ -53,8 +53,7 @@ class InputFrame(tk.Frame):
         parameters = calculateParameters(z, alpha, m)
 
         # Calculate the points on the gear
-        # The 0.16 value should be replaced with a variable
-        x, y = gearPoints(parameters, 0.05 * parameters["r"])
+        x, y = gearPoints(parameters, 0.01 * parameters["z"])
 
         # This adds the list of x and y values in coordinate form
         points = list(zip(x, y))

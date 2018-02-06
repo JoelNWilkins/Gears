@@ -17,8 +17,17 @@ for i in range(len(xlsFiles)):
 run = True
 while run:
     try:
-        number = int(input("Enter the file number to open: "))
-        if number <= len(xlsFiles) and number > 0:
+        number1 = int(input("Enter the file number to open for gear 1: "))
+        if number1 <= len(xlsFiles) and number1 > 0:
+            run = False
+    except:
+        print("Invalid input.")
+
+run = True
+while run:
+    try:
+        number2 = int(input("Enter the file number to open for gear 2: "))
+        if number2 <= len(xlsFiles) and number2 > 0:
             run = False
     except:
         print("Invalid input.")
@@ -58,36 +67,42 @@ scene.select()
 captionText = []
 
 # Load the gear data from an xls file
-points, parameters = readData(xlsFiles[number-1])
+points1, parameters1 = readData(xlsFiles[number1-1])
+points2, parameters2 = readData(xlsFiles[number2-1])
 
-# Create a 2D profile of the gear
-gearProfile = shapes.points(pos=points)
+# Calculate the face width of the largest gear
+if parameters1["z"] > parameters2["z"]:
+    faceWidth = 0.1 * parameters1["r"]
+else:
+    faceWidth = 0.1 * parameters2["r"]
 
-faceWidth = 0.1 * parameters["r"]
-
-# extrusion is used to project a 2D shape to 3D
-# Rotate the gears so that they face the camera
 setCaption("Building gear 1...")
-gear1 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)], shape=gearProfile, axis=vector(0, 0, 0))
-gear1.pos = vector(-parameters["r"], 0, 0)
+# Create a 2D profile of the gear
+profile = shapes.points(pos=points1)
+# extrusion is used to project a 2D shape to 3D
+gear1 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
+                  shape=profile, axis=vector(0, 0, 0), color=vector(255, 0, 0))
+gear1.profile = profile
+# Set the position of gear so the pitch point is at the origin
+gear1.pos = vector(-parameters1["r"], 0, 0)
+# Rotate the gear so that it faces the camera
 gear1.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear1.pos)
 gear1.angle = 0
 
 setCaption("Building gear 2...")
-gear2 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)], shape=gearProfile, axis=vector(0, 0, 0))
-gear2.pos = vector(parameters["r"], 0, 0)
+# Create a 2D profile of the gear
+profile = shapes.points(pos=points2)
+# extrusion is used to project a 2D shape to 3D
+gear2 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
+                  shape=profile, axis=vector(0, 0, 0), color=vector(0, 0, 255))
+gear2.profile = profile
+# Set the position of the gear so the pitch point is at the origin
+gear2.pos = vector(parameters2["r"], 0, 0)
+# Rotate the gear so that it faces the camera
 gear2.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear2.pos)
 gear2.rotate(angle=math.pi, axis=vector(1, 0, 0), origin=gear2.pos)
-gear2.rotate(angle=parameters["angle"]/2, axis=gear2.axis, origin=gear2.pos)
-gear2.angle = parameters["angle"] / 2
-
-gearProfile1 = []
-for point in points:
-    gearProfile1.append([point[0] + gear1.pos.x, point[1] + gear1.pos.y])
-
-gearProfile2 = []
-for point in points:
-    gearProfile2.append([point[0] + gear2.pos.x, point[1] + gear2.pos.y])
+gear2.rotate(angle=parameters2["angle"]/2, axis=gear2.axis, origin=gear2.pos)
+gear2.angle = parameters2["angle"] / 2
 
 # Clear the caption and create the speed control slider
 setCaption("")
@@ -96,12 +111,10 @@ s = SpeedControl(min=0, max=0.1, value=0.01)
 while True:
     # Rotate the gears depending on the speed
     gear1.rotate(angle=s.getSpeed(), axis=gear1.axis, origin=gear1.pos)
-    gear2.rotate(angle=s.getSpeed(), axis=gear2.axis, origin=gear2.pos)
+    gear2.rotate(angle=s.getSpeed() * parameters1["z"] / parameters2["z"],
+                 axis=gear2.axis, origin=gear2.pos)
     gear1.angle += s.getSpeed()
-    gear2.angle += s.getSpeed()
+    gear2.angle += s.getSpeed() * parameters1["z"] / parameters2["z"]
 
-    #var = intersecting(gearPoints1=gearProfile1, centre1=[gear1.pos.x, gear1.pos.y], angle1=gear1.angle,
-    #                   gearPoints2=gearProfile2, centre2=[gear2.pos.x, gear2.pos.y], angle2=gear2.angle)
-    
     # Slow down the program to avoid using too much CPU power
     rate(25)
