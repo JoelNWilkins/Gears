@@ -149,7 +149,7 @@ class MenuBar(tk.Menu):
         # Add the circles to the graph
         self.frame.addCircle(parameters["r"], style="b:")
         self.frame.addCircle(parameters["r_b"], style="g:")
-        self.frame.addCircle(parameters["r_a"], style="r:")
+        self.frame.addCircle(parameters["r_a"], style="m:")
         self.frame.addCircle(parameters["r_f"], style="y:")
 
         # Update the canvas to show the gear

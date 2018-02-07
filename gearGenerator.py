@@ -73,20 +73,22 @@ def gearPoints(parameters, step):
     # Including them can cause the model to not run
 
     # gap is the angle between the bases of 2 involute curves
-    gap1 = parameters["angle"] - ((parameters["s"] / parameters["r"])
-            + 2 * (involute(getAlpha(parameters["r_b"], parameters["r"]))
-            - involute(getAlpha(parameters["r_b"], parameters["r_b"]))))
-    gap2 = parameters["angle"] - ((parameters["s"] / parameters["r"])
-            - 2 * (involute(getAlpha(parameters["r_b"], parameters["r_a"]))
-            - involute(getAlpha(parameters["r_b"], parameters["r"]))))
-    gap = gap1 / 2
-    print(gap)
+    gap = (parameters["angle"] - ((parameters["s"] / parameters["r"])
+        + 2 * (involute(getAlpha(parameters["r_b"], parameters["r"]))
+        - involute(getAlpha(parameters["r_b"], parameters["r_b"]))))) / 2
+
+    # If the base radius is smaller than the dedendum
+    # set the cut off radius to the dedendum
+    if parameters["r_f"] > parameters["r_b"]:
+        R = parameters["r_f"]
+    else:
+        R = parameters["r_b"]
 
     x = []
     y = []
     for i in range(parameters["z"]):
         # Generate the leading curve
-        for r in frange(parameters["r_b"], parameters["r_a"], step):
+        for r in frange(R, parameters["r_a"], step):
             alpha = getAlpha(parameters["r_b"], r)
             point = points(r, alpha)
             point = rotate(point, (parameters["angle"] * i) + gap, (0, 0))
@@ -100,7 +102,7 @@ def gearPoints(parameters, step):
             y.append(point[1])"""
         
         # Generate the trailing curve
-        for r in frange(parameters["r_a"], parameters["r_b"], step):
+        for r in frange(parameters["r_a"], R, step):
             alpha = getAlpha(parameters["r_b"], r)
             point = points(r, -alpha)
             point = rotate(point, (parameters["angle"] * (i + 1)) - gap, (0, 0))

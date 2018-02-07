@@ -81,7 +81,7 @@ setCaption("Building gear 1...")
 profile = shapes.points(pos=points1)
 # extrusion is used to project a 2D shape to 3D
 gear1 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
-                  shape=profile, axis=vector(0, 0, 0), color=vector(255, 0, 0))
+                  shape=profile, axis=vector(0, 0, 0))#, color=vector(255, 0, 0))
 gear1.profile = profile
 # Set the position of gear so the pitch point is at the origin
 gear1.pos = vector(-parameters1["r"], 0, 0)
@@ -94,7 +94,7 @@ setCaption("Building gear 2...")
 profile = shapes.points(pos=points2)
 # extrusion is used to project a 2D shape to 3D
 gear2 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
-                  shape=profile, axis=vector(0, 0, 0), color=vector(0, 0, 255))
+                  shape=profile, axis=vector(0, 0, 0))#, color=vector(0, 0, 255))
 gear2.profile = profile
 # Set the position of the gear so the pitch point is at the origin
 gear2.pos = vector(parameters2["r"], 0, 0)
