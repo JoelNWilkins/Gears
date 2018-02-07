@@ -142,11 +142,8 @@ def calculateParameters(z, alpha, m):
     r_f = d_f / 2
     # Calculate the pitch
     p = math.pi * m
-    # Calculate the base pitch
-    p_b = p * math.cos(math.radians(alpha))
     # Calculate the tooth thickness
     s = p / 2
-    s_b = p_b / 2
     # Calculate the angle for one tooth
     angle = 2 * math.pi / z
 
@@ -154,7 +151,7 @@ def calculateParameters(z, alpha, m):
     parameters = {"z": z, "alpha": alpha, "m": m, "d": d, "r": r, "d_b": d_b,
                   "r_b": r_b, "h_a": h_a, "h_f": h_f, "h": h, "c": c,
                   "h_w": h_w, "r_a": r_a, "d_a": d_a, "r_f": r_f, "d_f": d_f,
-                  "p": p, "p_b": p_b, "s": s, "s_b": s_b, "angle": angle}
+                  "p": p, "s": s, "angle": angle}
 
     return parameters
 

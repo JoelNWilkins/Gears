@@ -73,8 +73,15 @@ def gearPoints(parameters, step):
     # Including them can cause the model to not run
 
     # gap is the angle between the bases of 2 involute curves
-    gap = parameters["s"] * math.cos(parameters["alpha"]) / parameters["r"]
-    
+    gap1 = parameters["angle"] - ((parameters["s"] / parameters["r"])
+            + 2 * (involute(getAlpha(parameters["r_b"], parameters["r"]))
+            - involute(getAlpha(parameters["r_b"], parameters["r_b"]))))
+    gap2 = parameters["angle"] - ((parameters["s"] / parameters["r"])
+            - 2 * (involute(getAlpha(parameters["r_b"], parameters["r_a"]))
+            - involute(getAlpha(parameters["r_b"], parameters["r"]))))
+    gap = gap1 / 2
+    print(gap)
+
     x = []
     y = []
     for i in range(parameters["z"]):
