@@ -99,6 +99,102 @@ class GraphFrame(tk.Frame):
         self.toolbar.update()
         self.canvas._tkcanvas.pack()
 
+    def openFile(self, fileNames):
+        if len(fileNames) > 1:
+            # Load the gear data from the xls files
+            points1, parameters1 = readData(fileNames[0])
+            points2, parameters2 = readData(fileNames[1])
+
+            # Convert the points to a list of x and y values
+            x1, y1 = zip(*points1)
+            x2, y2 = zip(*points2)
+
+            # Rotate the second gear
+            x2, y2 = rotatePointList(x2, y2, parameters2["angle"]/2, (0, 0))
+
+            # Convert the x and y values to lists
+            x1, y1 = list(x1), list(y1)
+            x2, y2 = list(x2), list(y2)
+
+            # Adjust the x values so the gears don't overlap
+            for i in range(len(x1)):
+                x1[i] = x1[i] - parameters1["r"]
+            for i in range(len(x2)):
+                x2[i] = x2[i] + parameters2["r"]
+
+            # Plot the points by invoking the GraphFrame plot function
+            self.plot(x1, y1)
+            self.plot(x2, y2, clear=False)
+
+            xc = [-parameters1["r"], parameters2["r"], 0]
+            yc = [0, 0, 0]
+            lineOfCentres, = self.plot(xc, yc, style="bo-", clear=False)
+
+            # Remove the path from the file name and set the title to the file name
+            if "\\" in fileNames[0]:
+                self.title("{} and {}".format(fileNames[0].split("\\")[-1],
+                                                    fileNames[1].split("\\")[-1]))
+            else:
+                self.title("{} and {}".format(fileNames[0].split("/")[-1],
+                                                    fileNames[1].split("/")[-1]))
+
+            # Add the circles to the graph
+            ref1, = self.addCircle(parameters1["r"], style="b:", centre=(xc[0], yc[0]))
+            base1, = self.addCircle(parameters1["r_b"], style="g:", centre=(xc[0], yc[0]))
+            tip1, = self.addCircle(parameters1["r_a"], style="m:", centre=(xc[0], yc[0]))
+            root1, = self.addCircle(parameters1["r_f"], style="y:", centre=(xc[0], yc[0]))
+            ref2, = self.addCircle(parameters2["r"], style="b:", centre=(xc[1], yc[1]))
+            base2, = self.addCircle(parameters2["r_b"], style="g:", centre=(xc[1], yc[1]))
+            tip2, = self.addCircle(parameters2["r_a"], style="m:", centre=(xc[1], yc[1]))
+            root2, = self.addCircle(parameters2["r_f"], style="y:", centre=(xc[1], yc[1]))
+
+            # Update the legend
+            self.axis.legend([ref1, base1, tip1, root1, lineOfCentres],
+                                   ["Reference circle", "Base circle",
+                                    "Tip circle", "Root circle", "Line of centres"],
+                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
+                                   fancybox=True, shadow=True, ncol=3)
+        else:
+            # Select the first item in the list of file names
+            fileName = fileNames[0]
+
+            # Load the gear data from the xls file
+            points, parameters = readData(fileName)
+
+            # Convert the points into a list of x and y values
+            x, y = zip(*points)
+
+            # Plot the points by invoking the GraphFrame plot function
+            self.plot(x, y)
+
+            # Remove the path from the file name and set the title to the file name
+            if "\\" in fileName:
+                self.title(fileName.split("\\")[-1])
+            else:
+                self.title(fileName.split("/")[-1])
+
+            # Add the circles to the graph
+            ref, = self.addCircle(parameters["r"], style="b:")
+            base, = self.addCircle(parameters["r_b"], style="g:")
+            tip, = self.addCircle(parameters["r_a"], style="m:")
+            root, = self.addCircle(parameters["r_f"], style="y:")
+
+            # Update the legend
+            self.axis.legend([ref, base, tip, root],
+                                   ["Reference circle", "Base circle",
+                                    "Tip circle", "Root circle"],
+                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
+                                   fancybox=True, shadow=True, ncol=2)
+
+        try:
+            # Reset the toolbar
+            self.toolbar.update()
+        except:
+            pass
+
+        # Update the canvas to show the gear
+        self.canvas.draw()
+
     def plot(self, x, y, style=None, clear=True):
         # Remove any previous gears
         if clear:
@@ -154,95 +250,9 @@ class MenuBar(tk.Menu):
         # Ask the user to select the xls file(s) to open
         fileNames = askopenfilenames(initialdir="data", filetypes=[("Excel 97-2003 Workbook","*.xls")], defaultextension=".csv")
 
-        if len(fileNames) > 1:
-            # Load the gear data from the xls files
-            points1, parameters1 = readData(fileNames[0])
-            points2, parameters2 = readData(fileNames[1])
-
-            # Convert the points to a list of x and y values
-            x1, y1 = zip(*points1)
-            x2, y2 = zip(*points2)
-
-            # Rotate the second gear
-            x2, y2 = rotatePointList(x2, y2, parameters2["angle"]/2, (0, 0))
-
-            # Convert the x and y values to lists
-            x1, y1 = list(x1), list(y1)
-            x2, y2 = list(x2), list(y2)
-
-            # Adjust the x values so the gears don't overlap
-            for i in range(len(x1)):
-                x1[i] = x1[i] - parameters1["r"]
-            for i in range(len(x2)):
-                x2[i] = x2[i] + parameters2["r"]
-
-            # Plot the points by invoking the GraphFrame plot function
-            self.frame.plot(x1, y1)
-            self.frame.plot(x2, y2, clear=False)
-
-            xc = [-parameters1["r"], parameters2["r"], 0]
-            yc = [0, 0, 0]
-            lineOfCentres, = self.frame.plot(xc, yc, style="bo-", clear=False)
-
-            # Remove the path from the file name and set the title to the file name
-            if "\\" in fileNames[0]:
-                self.frame.title("{} and {}".format(fileNames[0].split("\\")[-1],
-                                                    fileNames[1].split("\\")[-1]))
-            else:
-                self.frame.title("{} and {}".format(fileNames[0].split("/")[-1],
-                                                    fileNames[1].split("/")[-1]))
-
-            # Add the circles to the graph
-            ref1, = self.frame.addCircle(parameters1["r"], style="b:", centre=(xc[0], yc[0]))
-            base1, = self.frame.addCircle(parameters1["r_b"], style="g:", centre=(xc[0], yc[0]))
-            tip1, = self.frame.addCircle(parameters1["r_a"], style="m:", centre=(xc[0], yc[0]))
-            root1, = self.frame.addCircle(parameters1["r_f"], style="y:", centre=(xc[0], yc[0]))
-            ref2, = self.frame.addCircle(parameters2["r"], style="b:", centre=(xc[1], yc[1]))
-            base2, = self.frame.addCircle(parameters2["r_b"], style="g:", centre=(xc[1], yc[1]))
-            tip2, = self.frame.addCircle(parameters2["r_a"], style="m:", centre=(xc[1], yc[1]))
-            root2, = self.frame.addCircle(parameters2["r_f"], style="y:", centre=(xc[1], yc[1]))
-
-            # Update the legend
-            self.frame.axis.legend([ref1, base1, tip1, root1, lineOfCentres],
-                                   ["Reference circle", "Base circle",
-                                    "Tip circle", "Root circle", "Line of centres"],
-                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
-                                   fancybox=True, shadow=True, ncol=3)
-        else:
-            # Select the first item in the list of file names
-            fileName = fileNames[0]
-
-            # Load the gear data from the xls file
-            points, parameters = readData(fileName)
-
-            # Convert the points into a list of x and y values
-            x, y = zip(*points)
-
-            # Plot the points by invoking the GraphFrame plot function
-            self.frame.plot(x, y)
-
-            # Remove the path from the file name and set the title to the file name
-            if "\\" in fileName:
-                self.frame.title(fileName.split("\\")[-1])
-            else:
-                self.frame.title(fileName.split("/")[-1])
-
-            # Add the circles to the graph
-            ref, = self.frame.addCircle(parameters["r"], style="b:")
-            base, = self.frame.addCircle(parameters["r_b"], style="g:")
-            tip, = self.frame.addCircle(parameters["r_a"], style="m:")
-            root, = self.frame.addCircle(parameters["r_f"], style="y:")
-
-            # Update the legend
-            self.frame.axis.legend([ref, base, tip, root],
-                                   ["Reference circle", "Base circle",
-                                    "Tip circle", "Root circle"],
-                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
-                                   fancybox=True, shadow=True, ncol=2)
-
-        # Update the canvas to show the gear
-        self.frame.canvas.draw()
-
+        # Call the GraphFrame openFile function to load the gear
+        self.frame.openFile(fileNames)
+        
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
 if __name__ == "__main__":
