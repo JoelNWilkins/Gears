@@ -11,19 +11,17 @@ try:
     # The lower case t is for use in python 3
     import tkinter as tk
     from tkinter import ttk
-    from tkinter.filedialog import askopenfilename, askopenfilenames, asksaveasfilename
+    from tkinter.filedialog import askopenfilenames, asksaveasfilename
 except:
     # The upper case T is for use in python 2
     import Tkinter as tk
     import ttk
-    from tkFileDialog import askopenfilename, asksaveasfilename
+    from tkFileDialog import askopenfilenames, asksaveasfilename
 # matplotlib is the module to generate the graphs
 # A tkinter backend is required to use matplotlib in tkinter window
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
-# os is required to find the files in the data directory etc.
-import os
 
 # Configure matplotlib to use the tkinter backend
 matplotlib.use("TkAgg")
@@ -61,13 +59,13 @@ class GraphFrame(tk.Frame):
         self.showRoot.set(True)
         self.showCentres.set(True)
 
-        # Store the file names for later use
-        self.fileNames = [fileName]
-
         # Shrink the current axis' height by 10% at the bottom
         box = self.axis.get_position()
         self.axis.set_position([box.x0, box.y0 + box.height * 0.1,
                                 box.width, box.height * 0.9])
+
+        # Store the file names for later use
+        self.fileNames = [fileName]
 
         # Load a file if it is provided
         if fileName != None:
@@ -79,13 +77,13 @@ class GraphFrame(tk.Frame):
         # Make a tkinter widget from the canvas to add to the frame
         self.tkCanvas = self.canvas.get_tk_widget()
         self.tkCanvas.pack()
-
         # Add a toolbar to zoom in on the graph etc.
         self.toolbar = NavigationToolbar2TkAgg(self.canvas, self)
         self.toolbar.update()
         self.canvas._tkcanvas.pack()
 
     def openFile(self, fileNames):
+        # Update the file names of the current gear(s)
         self.fileNames = fileNames
         
         if len(fileNames) > 1:
@@ -264,6 +262,7 @@ class GraphFrame(tk.Frame):
         # Generate the list of points on the circle of radius r
         x, y = circlePoints(r, 0.01)
 
+        # Adjust the coordinates for non-zero centres
         if centre[0] != 0:
             for i in range(len(x)):
                 x[i] = x[i] + centre[0]
@@ -271,6 +270,7 @@ class GraphFrame(tk.Frame):
             for i in range(len(y)):
                 y[i] = y[i] + centre[1]
 
+        # Set the default style to a red line
         if style == None:
             style = "r"
 
@@ -289,6 +289,7 @@ class MenuBar(tk.Menu):
         self.root = root
         self.frame = frame
 
+        # Create the file menu
         # Create a sub-menu to go on the menubar
         self.fileMenu = tk.Menu(self, tearoff=False)
         # Bind the command openFile to the open button
@@ -296,37 +297,45 @@ class MenuBar(tk.Menu):
                                   accelerator="Ctrl+O")
         # Add the sub-menu to the menubar
         self.add_cascade(label="File", menu=self.fileMenu)
-        
+
+        # Create the options menu
         # Create a sub-menu to go on the menubar
-        self.linesMenu = tk.Menu(self, tearoff=False)
+        self.optionsMenu = tk.Menu(self, tearoff=False)
         # Bind the options to the menu as checkbuttons
-        self.linesMenu.add_checkbutton(label="Reference circle",
+        self.optionsMenu.add_checkbutton(label="Reference Circle",
                                        command=self.updateGraph,
                                        variable=self.frame.showRef)
-        self.linesMenu.add_checkbutton(label="Base circle",
+        self.optionsMenu.add_checkbutton(label="Base Circle",
                                        command=self.updateGraph,
                                        variable=self.frame.showBase)
-        self.linesMenu.add_checkbutton(label="Tip circle",
+        self.optionsMenu.add_checkbutton(label="Tip Circle",
                                        command=self.updateGraph,
                                        variable=self.frame.showTip)
-        self.linesMenu.add_checkbutton(label="Root circle",
+        self.optionsMenu.add_checkbutton(label="Root Circle",
                                        command=self.updateGraph,
                                        variable=self.frame.showRoot)
-        self.linesMenu.add_checkbutton(label="Line of centres",
+        self.optionsMenu.add_checkbutton(label="Line of Centres",
                                        command=self.updateGraph,
                                        variable=self.frame.showCentres)
         # Add the sub-menu to the menubar
-        self.add_cascade(label="Lines", menu=self.linesMenu)
+        self.add_cascade(label="Options", menu=self.optionsMenu)
+
+        # Add the key bindings
+        root.bind("<Control-o>", self.openFile)
 
     def openFile(self, *args, **kwargs):
-        # Ask the user to select the xls file(s) to open
-        fileNames = askopenfilenames(initialdir="data",
-                                     filetypes=[("Excel 97-2003 Workbook",
-                                                 "*.xls")],
-                                     defaultextension=".xls")
+        try:
+            # Ask the user to select the xls file(s) to open
+            fileNames = askopenfilenames(initialdir="data",
+                                         filetypes=[("Excel 97-2003 Workbook",
+                                                     "*.xls")],
+                                         defaultextension=".xls")
+        except:
+            pass
 
-        # Call the GraphFrame openFile function to load the gear
-        self.frame.openFile(fileNames)
+        if len(fileNames) != 0:
+            # Call the GraphFrame openFile function to load the gear
+            self.frame.openFile(fileNames)
 
     def updateGraph(self, *args, **kwargs):
         self.frame.openFile(self.frame.fileNames)

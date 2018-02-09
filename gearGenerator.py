@@ -9,27 +9,38 @@ from gearViewer import *
 class InputFrame(tk.Frame):
     # A frame containing the input fields for the parameters
 
-    def __init__(self, root, defaults=None):
+    def __init__(self, root, defaults=None, command=None):
         # Create a frame in the root window
         tk.Frame.__init__(self, root)
 
         # Save the root for later use
         self.root = root
 
-        # Create labels and entries for the input parameters
-        self.label1 = tk.Label(self, text="Number of teeth: ")
-        self.label1.grid(row=0, column=0, sticky="e")
-        self.entry1 = tk.Entry(self)
-        self.entry1.grid(row=0, column=1, sticky="w")
-        self.label2 = tk.Label(self, text="Pressure angle: (°) ")
-        self.label2.grid(row=1, column=0, sticky="e")
-        self.entry2 = tk.Entry(self)
-        self.entry2.grid(row=1, column=1, sticky="w")
-        self.label3 = tk.Label(self, text="Module: (mm)")
-        self.label3.grid(row=2, column=0, sticky="e")
-        self.entry3 = tk.Entry(self)
-        self.entry3.grid(row=2, column=1, sticky="w")
+        # Save the command to call when finished
+        self.command = command
 
+        # Create frames to organise the widgets
+        self.inputFrame = tk.Frame(self)
+        self.buttonFrame = tk.Frame(self)
+        # Set the positions of the frames
+        self.inputFrame.grid(row=0, column=0)
+        self.buttonFrame.grid(row=1, column=0)
+
+        # Create labels and entries for the input parameters
+        self.label1 = tk.Label(self.inputFrame, text="Number of teeth: ")
+        self.label1.grid(row=0, column=0, sticky="e")
+        self.entry1 = tk.Entry(self.inputFrame)
+        self.entry1.grid(row=0, column=1, sticky="w", pady=2)
+        self.label2 = tk.Label(self.inputFrame, text="Pressure angle: (°) ")
+        self.label2.grid(row=1, column=0, sticky="e")
+        self.entry2 = tk.Entry(self.inputFrame)
+        self.entry2.grid(row=1, column=1, sticky="w", pady=2)
+        self.label3 = tk.Label(self.inputFrame, text="Module: (mm)")
+        self.label3.grid(row=2, column=0, sticky="e")
+        self.entry3 = tk.Entry(self.inputFrame)
+        self.entry3.grid(row=2, column=1, sticky="w", pady=2)
+
+        # Insert default values into the entries if defaults exist
         if defaults != None:
             if defaults["z"] != None:
                 self.entry1.insert(0, defaults["z"])
@@ -39,32 +50,55 @@ class InputFrame(tk.Frame):
                 self.entry3.insert(0, defaults["m"])
 
         # Create a button to generate the gear
-        self.button = tk.Button(self, text="Generate gear",
+        self.button = tk.Button(self.buttonFrame, text="Generate Gear",
                                 command=self.generateGear)
-        self.button.grid(row=3, column=0)
+        self.button.pack(pady=2)
 
     def generateGear(self, *args, **kwargs):
-        # Read the values from the entries
-        z = int(self.entry1.get())
-        alpha = float(self.entry2.get())
-        m = float(self.entry3.get())
+        try:
+            # Read the values from the entries
+            z = int(self.entry1.get())
+            alpha = float(self.entry2.get())
+            m = float(self.entry3.get())
 
-        # Calculate the parameters for the gear
-        parameters = calculateParameters(z, alpha, m)
+            # Calculate the parameters for the gear
+            parameters = calculateParameters(z, alpha, m)
 
-        # Calculate the points on the gear
-        x, y = gearPoints(parameters, 0.01 * parameters["z"])
+            # Calculate the points on the gear
+            x, y = gearPoints(parameters, 0.01 * parameters["z"])
 
-        # This adds the list of x and y values in coordinate form
-        points = list(zip(x, y))
+            # This adds the list of x and y values in coordinate form
+            points = list(zip(x, y))
 
-        # Ask the user to select the file name to save as
-        fileName = asksaveasfilename(initialdir="data",
-                                     filetypes=[("Excel 97-2003 Workbook",
-                                                 "*.xls")],
-                                     defaultextension=".xls")
-        # Save the gear points to an xls file
-        writeData(fileName, points, parameters)
+            # Ask the user to select the file name to save as
+            fileName = asksaveasfilename(parent=self.root, initialdir="data",
+                                         filetypes=[("Excel 97-2003 Workbook",
+                                                     "*.xls")],
+                                         defaultextension=".xls")
+            # Save the gear points to an xls file
+            writeData(fileName, points, parameters)
+        except:
+            return
+        
+        # Call the command which has been passed to the frame
+        if self.command != None:
+            self.command()
+
+def newGear(*args, **kwargs):
+    def closeWindow():
+        window.destroy()
+
+    # Create a popup window for the user to enter the parameters
+    window = tk.Tk()
+    window.title("New Gear")
+
+    # Add the input frame to the window and pass the command to close the window
+    frame = InputFrame(window, defaults={"z": None, "alpha": 20, "m": None},
+                       command=closeWindow)
+    frame.pack(padx=7, pady=5)
+
+    # Run the window
+    window.mainloop()
 
 def gearPoints(parameters, step):
     # This is the main function to generate a gear
@@ -171,15 +205,24 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Generator")
+    
     # Add notebook to manage different pages
-    notebook = ttk.Notebook(root)
-    notebook.pack()
+    #notebook = ttk.Notebook(root)
+    #notebook.pack()
+    
     # Add the InputFrame
-    frame1 = InputFrame(root, defaults={"z": None, "alpha": 20, "m": None})
-    notebook.add(frame1, text="Generator")
+    #frame1 = InputFrame(root, defaults={"z": None, "alpha": 20, "m": None})
+    #notebook.add(frame1, text="Generator")
+    
     # Add the GraphFrame and MenuBar objects
     frame2 = GraphFrame(root, fileName=xlsFiles[0])
-    notebook.add(frame2, text="Viewer")
+    frame2.pack()
+    #notebook.add(frame2, text="Viewer")
     menubar = MenuBar(root, frame2)
+    menubar.fileMenu.insert_command(0, label="New Gear", command=newGear,
+                                    accelerator="Ctrl-N")
+    # Add the key bindings
+    root.bind("<Control-n>", newGear)
+    
     # Run the window
     root.mainloop()
