@@ -47,45 +47,31 @@ class GraphFrame(tk.Frame):
         # The equal means that the graph will not be distorted
         self.axis.axis("equal")
 
+        # Create variables for the state of each line
+        self.showRef = tk.BooleanVar()
+        self.showBase = tk.BooleanVar()
+        self.showTip = tk.BooleanVar()
+        self.showRoot = tk.BooleanVar()
+        self.showCentres = tk.BooleanVar()
+
+        # Set the values of the variables
+        self.showRef.set(True)
+        self.showBase.set(True)
+        self.showTip.set(True)
+        self.showRoot.set(True)
+        self.showCentres.set(True)
+
+        # Store the file names for later use
+        self.fileNames = [fileName]
+
+        # Shrink the current axis' height by 10% at the bottom
+        box = self.axis.get_position()
+        self.axis.set_position([box.x0, box.y0 + box.height * 0.1,
+                                box.width, box.height * 0.9])
+
+        # Load a file if it is provided
         if fileName != None:
-            try:
-                # Load the gear data from an xls file
-                points, parameters = readData(fileName)
-
-                # Convert the points into a list of x and y values
-                x, y = zip(*points)
-
-                # Plot the points by invoking the GraphFrame plot function
-                self.plot(x, y)
-
-                # Remove the path from the file name and set the title to the file name
-                if "\\" in fileName:
-                    path, name = "\\".join(fileName.split("\\")[:-1]), fileName.split("\\")[-1]
-                    self.title(fileName.split("\\")[-1])
-                else:
-                    path, name = "/".join(fileName.split("/")[:-1]), fileName.split("/")[-1]
-                    self.title(fileName.split("/")[-1])
-
-                # Add the circles to the graph
-                ref, = self.addCircle(parameters["r"], style="b:")
-                base, = self.addCircle(parameters["r_b"], style="g:")
-                tip, = self.addCircle(parameters["r_a"], style="m:")
-                root, = self.addCircle(parameters["r_f"], style="y:")
-
-                # Shrink the current axis' height by 10% at the bottom
-                box = self.axis.get_position()
-                self.axis.set_position([box.x0, box.y0 + box.height * 0.1,
-                                        box.width, box.height * 0.9])
-
-                # Put a legend below current axis
-                self.axis.legend([ref, base, tip, root],
-                                 ["Reference circle", "Base circle",
-                                  "Tip circle", "Root circle"],
-                                 loc='upper center',
-                                 bbox_to_anchor=(0.5, -0.075),
-                                 fancybox=True, shadow=True, ncol=2)
-            except:
-                pass
+            self.openFile(self.fileNames)
 
         # Create a canvas object containing the figure
         self.canvas = FigureCanvasTkAgg(self.fig, self)
@@ -100,6 +86,8 @@ class GraphFrame(tk.Frame):
         self.canvas._tkcanvas.pack()
 
     def openFile(self, fileNames):
+        self.fileNames = fileNames
+        
         if len(fileNames) > 1:
             # Load the gear data from the xls files
             points1, parameters1 = readData(fileNames[0])
@@ -126,9 +114,9 @@ class GraphFrame(tk.Frame):
             self.plot(x1, y1)
             self.plot(x2, y2, clear=False)
 
+            # Add the points on the line of centres
             xc = [-parameters1["r"], parameters2["r"], 0]
             yc = [0, 0, 0]
-            lineOfCentres, = self.plot(xc, yc, style="bo-", clear=False)
 
             # Remove the path from the file name and set the title to the file name
             if "\\" in fileNames[0]:
@@ -138,22 +126,58 @@ class GraphFrame(tk.Frame):
                 self.title("{} and {}".format(fileNames[0].split("/")[-1],
                                                     fileNames[1].split("/")[-1]))
 
+            # Lines and labels to be passed to the legend
+            lines = []
+            labels = []
+
             # Add the circles to the graph
-            ref1, = self.addCircle(parameters1["r"], style="b:", centre=(xc[0], yc[0]))
-            base1, = self.addCircle(parameters1["r_b"], style="g:", centre=(xc[0], yc[0]))
-            tip1, = self.addCircle(parameters1["r_a"], style="m:", centre=(xc[0], yc[0]))
-            root1, = self.addCircle(parameters1["r_f"], style="y:", centre=(xc[0], yc[0]))
-            ref2, = self.addCircle(parameters2["r"], style="b:", centre=(xc[1], yc[1]))
-            base2, = self.addCircle(parameters2["r_b"], style="g:", centre=(xc[1], yc[1]))
-            tip2, = self.addCircle(parameters2["r_a"], style="m:", centre=(xc[1], yc[1]))
-            root2, = self.addCircle(parameters2["r_f"], style="y:", centre=(xc[1], yc[1]))
+            if self.showRef.get():
+                ref1, = self.addCircle(parameters1["r"], style="b:",
+                                       centre=(xc[0], yc[0]))
+                ref2, = self.addCircle(parameters2["r"], style="b:",
+                                       centre=(xc[1], yc[1]))
+                lines.append(ref1)
+                labels.append("Reference circle")
+            if self.showBase.get():
+                base1, = self.addCircle(parameters1["r_b"], style="g:",
+                                        centre=(xc[0], yc[0]))
+                base2, = self.addCircle(parameters2["r_b"], style="g:",
+                                        centre=(xc[1], yc[1]))
+                lines.append(base1)
+                labels.append("Base circle")
+            if self.showTip.get():
+                tip1, = self.addCircle(parameters1["r_a"], style="m:",
+                                       centre=(xc[0], yc[0]))
+                tip2, = self.addCircle(parameters2["r_a"], style="m:",
+                                       centre=(xc[1], yc[1]))
+                lines.append(tip1)
+                labels.append("Tip circle")
+            if self.showRoot.get():
+                root1, = self.addCircle(parameters1["r_f"], style="y:",
+                                        centre=(xc[0], yc[0]))
+                root2, = self.addCircle(parameters2["r_f"], style="y:",
+                                        centre=(xc[1], yc[1]))
+                lines.append(root1)
+                labels.append("Root circle")
+            if self.showCentres.get():
+                lineOfCentres, = self.plot(xc, yc, style="bo-", clear=False)
+                lines.append(lineOfCentres)
+                labels.append("Line of centres")
+
+            # Adjust the number of columns of the legend to make it look neater
+            if len(lines) > 4 or len(lines) == 3:
+                cols = 3
+            else:
+                cols = 2
 
             # Update the legend
-            self.axis.legend([ref1, base1, tip1, root1, lineOfCentres],
-                                   ["Reference circle", "Base circle",
-                                    "Tip circle", "Root circle", "Line of centres"],
-                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
-                                   fancybox=True, shadow=True, ncol=3)
+            self.axis.legend(lines, labels,
+                             loc='upper center',
+                             bbox_to_anchor=(0.5, -0.075),
+                             fancybox=True, shadow=True, ncol=cols)
+
+            # Hide the legend if it is empty
+            self.axis.get_legend().set_visible(len(lines) != 0)
         else:
             # Select the first item in the list of file names
             fileName = fileNames[0]
@@ -173,27 +197,53 @@ class GraphFrame(tk.Frame):
             else:
                 self.title(fileName.split("/")[-1])
 
+            # Lines and labels to be passed to the legend
+            lines = []
+            labels = []
+
             # Add the circles to the graph
-            ref, = self.addCircle(parameters["r"], style="b:")
-            base, = self.addCircle(parameters["r_b"], style="g:")
-            tip, = self.addCircle(parameters["r_a"], style="m:")
-            root, = self.addCircle(parameters["r_f"], style="y:")
+            if self.showRef.get():
+                ref, = self.addCircle(parameters["r"], style="b:")
+                lines.append(ref)
+                labels.append("Reference circle")
+            if self.showBase.get():
+                base, = self.addCircle(parameters["r_b"], style="g:")
+                lines.append(base)
+                labels.append("Base circle")
+            if self.showTip.get():
+                tip, = self.addCircle(parameters["r_a"], style="m:")
+                lines.append(tip)
+                labels.append("Tip circle")
+            if self.showRoot.get():
+                root, = self.addCircle(parameters["r_f"], style="y:")
+                lines.append(root)
+                labels.append("Root circle")
+
+            # Adjust the number of columns of the legend to make it look neater
+            if len(lines) == 3:
+                cols = 3
+            else:
+                cols = 2
 
             # Update the legend
-            self.axis.legend([ref, base, tip, root],
-                                   ["Reference circle", "Base circle",
-                                    "Tip circle", "Root circle"],
-                                   loc='upper center', bbox_to_anchor=(0.5, -0.075),
-                                   fancybox=True, shadow=True, ncol=2)
+            self.axis.legend(lines, labels, loc='upper center',
+                             bbox_to_anchor=(0.5, -0.075), fancybox=True,
+                             shadow=True, ncol=cols)
 
+            # Hide the legend if it is empty
+            self.axis.get_legend().set_visible(len(lines) != 0)
+                
         try:
             # Reset the toolbar
             self.toolbar.update()
         except:
             pass
 
-        # Update the canvas to show the gear
-        self.canvas.draw()
+        try:
+            # Update the canvas to show the gear
+            self.canvas.draw()
+        except:
+            pass
 
     def plot(self, x, y, style=None, clear=True):
         # Remove any previous gears
@@ -242,16 +292,44 @@ class MenuBar(tk.Menu):
         # Create a sub-menu to go on the menubar
         self.fileMenu = tk.Menu(self, tearoff=False)
         # Bind the command openFile to the open button
-        self.fileMenu.add_command(label="Open...", command=self.openFile, accelerator="Ctrl+O")
+        self.fileMenu.add_command(label="Open...", command=self.openFile,
+                                  accelerator="Ctrl+O")
         # Add the sub-menu to the menubar
         self.add_cascade(label="File", menu=self.fileMenu)
+        
+        # Create a sub-menu to go on the menubar
+        self.linesMenu = tk.Menu(self, tearoff=False)
+        # Bind the options to the menu as checkbuttons
+        self.linesMenu.add_checkbutton(label="Reference circle",
+                                       command=self.updateGraph,
+                                       variable=self.frame.showRef)
+        self.linesMenu.add_checkbutton(label="Base circle",
+                                       command=self.updateGraph,
+                                       variable=self.frame.showBase)
+        self.linesMenu.add_checkbutton(label="Tip circle",
+                                       command=self.updateGraph,
+                                       variable=self.frame.showTip)
+        self.linesMenu.add_checkbutton(label="Root circle",
+                                       command=self.updateGraph,
+                                       variable=self.frame.showRoot)
+        self.linesMenu.add_checkbutton(label="Line of centres",
+                                       command=self.updateGraph,
+                                       variable=self.frame.showCentres)
+        # Add the sub-menu to the menubar
+        self.add_cascade(label="Lines", menu=self.linesMenu)
 
     def openFile(self, *args, **kwargs):
         # Ask the user to select the xls file(s) to open
-        fileNames = askopenfilenames(initialdir="data", filetypes=[("Excel 97-2003 Workbook","*.xls")], defaultextension=".csv")
+        fileNames = askopenfilenames(initialdir="data",
+                                     filetypes=[("Excel 97-2003 Workbook",
+                                                 "*.xls")],
+                                     defaultextension=".xls")
 
         # Call the GraphFrame openFile function to load the gear
         self.frame.openFile(fileNames)
+
+    def updateGraph(self, *args, **kwargs):
+        self.frame.openFile(self.frame.fileNames)
         
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
