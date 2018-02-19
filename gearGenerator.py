@@ -77,8 +77,14 @@ class InputFrame(tk.Frame):
                                          defaultextension=".xls")
             # Save the gear points to an xls file
             writeData(fileName, points, parameters)
+
+            graphFrame.openFile([fileName])
+        except PermissionError:
+            messagebox.showerror("Permission Error",
+"""Permission Error.
+The gear cannot be saved because the file is already open in another program.""")
         except:
-            return
+            raise
         
         # Call the command which has been passed to the frame
         if self.command != None:
@@ -97,8 +103,20 @@ def newGear(*args, **kwargs):
                        command=closeWindow)
     frame.pack(padx=7, pady=5)
 
-    # Run the window
-    window.mainloop()
+def modelGear(*args, **kwargs):
+    # Ask the user to select the file name to save as
+    fileNames = askopenfilenames(initialdir="data",
+                                 filetypes=[("Excel 97-2003 Workbook",
+                                             "*.xls")],
+                                 defaultextension=".xls")
+
+    import gearModel
+
+    if len(fileNames) == 1:
+        fileNames = [fileNames[0], fileNames[0]]
+
+    # Run the model
+    gearModel.main(fileNames)
 
 def gearPoints(parameters, step):
     # This is the main function to generate a gear
@@ -142,12 +160,14 @@ def gearPoints(parameters, step):
             point = rotate(point, (parameters["angle"] * (i + 1)) - gap, (0, 0))
             x.append(point[0])
             y.append(point[1])
-        """
+        
         # Generate the curve between the teeth
-        for theta in frange((angle * (i + 1)) - gap1, (angle * (i + 1)) + gap1, getDeltaTheta(r_b, step)):
-            point = cartesian(r_b, theta)
+        for theta in frange((parameters["angle"] * (i + 1)) - gap,
+                            (parameters["angle"] * (i + 1)) + gap,
+                            getDeltaTheta(parameters["r_f"], step)):
+            point = getCartesian(parameters["r_f"], theta)
             x.append(point[0])
-            y.append(point[1])"""
+            y.append(point[1])
 
     # Add the first values to the end to make the gear meet up
     x.append(x[0])
@@ -206,21 +226,16 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.title("Gear Generator")
     
-    # Add notebook to manage different pages
-    #notebook = ttk.Notebook(root)
-    #notebook.pack()
-    
-    # Add the InputFrame
-    #frame1 = InputFrame(root, defaults={"z": None, "alpha": 20, "m": None})
-    #notebook.add(frame1, text="Generator")
-    
     # Add the GraphFrame and MenuBar objects
-    frame2 = GraphFrame(root, fileName=xlsFiles[0])
-    frame2.pack()
+    graphFrame = GraphFrame(root, fileName=xlsFiles[0])
+    graphFrame.pack()
     #notebook.add(frame2, text="Viewer")
-    menubar = MenuBar(root, frame2)
+    menubar = MenuBar(root, graphFrame)
     menubar.fileMenu.insert_command(0, label="New Gear", command=newGear,
                                     accelerator="Ctrl-N")
+
+    menubar.add_command(label="Model", command=modelGear)
+    
     # Add the key bindings
     root.bind("<Control-n>", newGear)
     
