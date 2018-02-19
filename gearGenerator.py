@@ -115,6 +115,8 @@ def modelGear(*args, **kwargs):
     if len(fileNames) == 1:
         fileNames = [fileNames[0], fileNames[0]]
 
+    root.destroy()
+
     # Run the model
     gearModel.main(fileNames)
 
@@ -225,15 +227,21 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Generator")
+
+    # Allow the user to resize the graph
+    root.rowconfigure(0, weight=1)
+    root.columnconfigure(0, weight=1)
     
     # Add the GraphFrame and MenuBar objects
     graphFrame = GraphFrame(root, fileName=xlsFiles[0])
-    graphFrame.pack()
-    #notebook.add(frame2, text="Viewer")
+    graphFrame.grid(row=0, column=0, sticky="nsew")
+
+    # Add the command to create a new gear
     menubar = MenuBar(root, graphFrame)
     menubar.fileMenu.insert_command(0, label="New Gear", command=newGear,
                                     accelerator="Ctrl-N")
 
+    # Add the command to run the vpython model
     menubar.add_command(label="Model", command=modelGear)
     
     # Add the key bindings

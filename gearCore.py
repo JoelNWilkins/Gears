@@ -83,8 +83,10 @@ def points(r, alpha):
 
 def rotate(point, theta, centre):
     # This can be used to rotate a point about a centre
-    x = (point[0] - centre[0]) * math.cos(theta) - (point[1] - centre[1]) * math.sin(theta)
-    y = (point[0] - centre[0]) * math.sin(theta) + (point[1] - centre[1]) * math.cos(theta)
+    x = ((point[0] - centre[0]) * math.cos(theta)
+         - (point[1] - centre[1]) * math.sin(theta) + centre[0])
+    y = ((point[0] - centre[0]) * math.sin(theta)
+         + (point[1] - centre[1]) * math.cos(theta) + centre[1])
     return (x, y)
 
 def rotatePoints(points, theta, centre):
@@ -95,7 +97,6 @@ def rotatePoints(points, theta, centre):
         point = rotate(p, theta, centre)
         a.append(point[0])
         b.append(point[1])
-
     return list(zip(a, b))
 
 def rotatePointList(x, y, theta, centre):

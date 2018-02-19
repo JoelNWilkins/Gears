@@ -4,6 +4,9 @@
 # We do not have to import math etc. as this is done in gearCore
 from gearCore import *
 
+# Import the frame containing a matplotlib graph
+from graph import *
+
 # tkinter is used to create the GUI
 # ttk is an extension of tkinter and provides more advanced widgets
 # askopenfilename opens a file explorer window to select the file to open
@@ -15,29 +18,26 @@ from tkinter.filedialog import (askopenfilename, askopenfilenames,
 from tkinter import messagebox
 
 # matplotlib is the module to generate the graphs
-# A tkinter backend is required to use matplotlib in tkinter window
 import matplotlib
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
-from matplotlib.figure import Figure
 
-# Configure matplotlib to use the tkinter backend
-matplotlib.use("TkAgg")
 # Change the default directory for saving figures
 matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
 
-class GraphFrame(tk.Frame):
-    # A frame containing the matplotlib graph
-    
-    def __init__(self, root, fileName=None):
-        # Create a frame in the root window
-        tk.Frame.__init__(self, root)
+class GraphFrame(Graph):    
+    def __init__(self, parent, *args, fileName=None, **kwargs):
+        # Create a frame in the parent window
+        Graph.__init__(self, parent, *args, **kwargs)
 
-        # Save the root for later use
-        self.root = root
+        # Save the parent for later use
+        self.parent = parent
 
-        # Create a new figure and add an axis to the figure
-        self.fig = Figure(figsize=(6, 5), dpi=100)
+        # Reference the graph frame items
+        self.fig = self.figure()
+
         self.axis = self.fig.add_subplot(111)
+        
+        self.canvas = self.canvas()
+        self.toolbar = self.toolbar()
         
         # The equal means that the graph will not be distorted
         self.axis.axis("equal")
@@ -67,17 +67,6 @@ class GraphFrame(tk.Frame):
         # Load a file if it is provided
         if fileName != None:
             self.openFile(self.fileNames)
-
-        # Create a canvas object containing the figure
-        self.canvas = FigureCanvasTkAgg(self.fig, self)
-        self.canvas.show()
-        # Make a tkinter widget from the canvas to add to the frame
-        self.tkCanvas = self.canvas.get_tk_widget()
-        self.tkCanvas.pack(fill="both", expand=True)
-        # Add a toolbar to zoom in on the graph etc.
-        self.toolbar = NavigationToolbar2TkAgg(self.canvas, self)
-        self.toolbar.update()
-        self.canvas._tkcanvas.pack(fill="both", expand=True)
 
     def openFile(self, fileNames):
         # Update the file names of the current gear(s)
@@ -117,7 +106,7 @@ class GraphFrame(tk.Frame):
                     xc = [-parameters1["r"], parameters2["r"], 0]
                     yc = [0, 0, 0]
 
-                    # Remove the path from the file name and set the title to the file name
+                    # Remove the path from the file name and set the title
                     if "\\" in fileNames[0]:
                         self.title("{} and {}".format(
                             fileNames[0].split("\\")[-1],
@@ -161,11 +150,12 @@ class GraphFrame(tk.Frame):
                         lines.append(root1)
                         labels.append("Root Circle")
                     if self.showCentres.get():
-                        lineOfCentres, = self.plot(xc, yc, style="bo-", clear=False)
+                        lineOfCentres, = self.plot(xc, yc, style="bo-",
+                                                   clear=False)
                         lines.append(lineOfCentres)
                         labels.append("Line of Centres")
 
-                    # Adjust the number of columns of the legend to make it look neater
+                    # Adjust the number of columns of the legend
                     if len(lines) > 4 or len(lines) == 3:
                         cols = 3
                     else:
@@ -196,7 +186,7 @@ In order 2 for gears to mesh they must have the same module and pressure angle."
                 # Plot the points by invoking the GraphFrame plot function
                 self.plot(x, y)
 
-                # Remove the path from the file name and set the title to the file name
+                # Remove the path from the file name and set the title
                 if "\\" in fileName:
                     self.title(fileName.split("\\")[-1])
                 else:
@@ -266,7 +256,8 @@ The gear cannot be opened because it is already open in another program.""")
 
     def title(self, text):
         # Change the title of the window
-        self.root.title("{} - {}".format(text, self.root.title().split(" - ")[-1]))
+        self.parent.title("{} - {}".format(text, self.parent.title()
+                                           .split(" - ")[-1]))
         
         # Change the title of the plot
         self.axis.set_title(text)
@@ -293,13 +284,13 @@ The gear cannot be opened because it is already open in another program.""")
 class MenuBar(tk.Menu):
     # A menubar containing drop-down menus such as file
     
-    def __init__(self, root, frame):
-        # Create the menubar and bind it to the root window
-        tk.Menu.__init__(self, root)
-        root.config(menu=self)
+    def __init__(self, parent, frame, *args, **kwargs):
+        # Create the menubar and bind it to the parent window
+        tk.Menu.__init__(self, parent)
+        parent.config(menu=self)
 
-        # Save the root and frame for later use
-        self.root = root
+        # Save the parent and frame for later use
+        self.parent = parent
         self.frame = frame
 
         # Create the file menu
@@ -340,8 +331,8 @@ class MenuBar(tk.Menu):
         self.add_command(label="Help", command=self.help)
 
         # Add the key bindings
-        root.bind("<Control-o>", self.openFile)
-        root.bind("<Control-Shift-KeyPress-O>", self.openMultiple)
+        parent.bind("<Control-o>", self.openFile)
+        parent.bind("<Control-Shift-KeyPress-O>", self.openMultiple)
 
     def openFile(self, *args, multiple=False, **kwargs):
         if multiple:
@@ -427,10 +418,16 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Viewer")
-    root.resizable(0, 0)
+
+    # Allow the user to resize the graph
+    root.rowconfigure(0, weight=1)
+    root.columnconfigure(0, weight=1)
+    
     # Add the GraphFrame and MenuBar objects
     frame = GraphFrame(root, fileName=xlsFiles[0])
-    frame.pack()
+    frame.grid(row=0, column=0, sticky="nsew")
+    
     menubar = MenuBar(root, frame)
+    
     # Run the window
     root.mainloop()
