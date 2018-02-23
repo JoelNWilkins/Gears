@@ -6,15 +6,16 @@ from gearCore import *
 # Also import the gearViewer program to display what the gear looks like
 from gearViewer import *
 
-class InputFrame(tk.Frame):
+class InputFrame(tk.Toplevel):
     # A frame containing the input fields for the parameters
 
-    def __init__(self, root, defaults=None, command=None):
+    def __init__(self, *args, defaults=None, command=None, **kwargs):
         # Create a frame in the root window
-        tk.Frame.__init__(self, root)
+        tk.Toplevel.__init__(self, *args, **kwargs)
+        self.title("New Gear")
 
         # Save the root for later use
-        self.root = root
+        #self.parent = parent
 
         # Save the command to call when finished
         self.command = command
@@ -71,7 +72,7 @@ class InputFrame(tk.Frame):
             points = list(zip(x, y))
 
             # Ask the user to select the file name to save as
-            fileName = asksaveasfilename(parent=self.root, initialdir="data",
+            fileName = asksaveasfilename(parent=self, initialdir="data",
                                          filetypes=[("Excel 97-2003 Workbook",
                                                      "*.xls")],
                                          defaultextension=".xls")
@@ -92,16 +93,16 @@ The gear cannot be saved because the file is already open in another program."""
 
 def newGear(*args, **kwargs):
     def closeWindow():
-        window.destroy()
+        inputFrame.destroy()
 
     # Create a popup window for the user to enter the parameters
-    window = tk.Tk()
-    window.title("New Gear")
+    #window = tk.Tk()
+    #window.title("New Gear")
 
     # Add the input frame to the window and pass the command to close the window
-    frame = InputFrame(window, defaults={"z": None, "alpha": 20, "m": None},
-                       command=closeWindow)
-    frame.pack(padx=7, pady=5)
+    inputFrame = InputFrame(defaults={"z": None, "alpha": 20, "m": None},
+                            command=closeWindow, padx=7, pady=5)
+    #inputFrame.pack(padx=7, pady=5)
 
 def modelGear(*args, **kwargs):
     # Ask the user to select the file name to save as
@@ -120,16 +121,19 @@ def modelGear(*args, **kwargs):
     # Run the model
     gearModel.main(fileNames)
 
+def trochoid(t, R, x_0, y_0):
+    x = ((R + x_0) * math.cos(t) + (R * t + y_0) * math.sin(t))
+    y = (- (R + x_0) * math.sin(t) + (R * t + y_0) * math.cos(t))
+
+    return (x, y)
+
 def gearPoints(parameters, step):
     # This is the main function to generate a gear
-    # The 2nd and 4th sections may have to be commented out
-    # if the gear is being used in the 3D model
-    # Including them can cause the model to not run
 
     # gap is the angle between the bases of 2 involute curves
     gap = (parameters["angle"] - ((parameters["s"] / parameters["r"])
         + 2 * (involute(getAlpha(parameters["r_b"], parameters["r"]))
-        - involute(getAlpha(parameters["r_b"], parameters["r_b"]))))) / 2
+        - involute(getAlpha(parameters["r_b"], parameters["r_b"])))))
 
     # If the base radius is smaller than the dedendum
     # set the cut off radius to the dedendum
@@ -138,38 +142,68 @@ def gearPoints(parameters, step):
     else:
         R = parameters["r_b"]
 
+    # Calculate the point used to generate the trochoid curve
+    x_0 = - 1.25 * parameters["m"]
+    y_0 = (0.25 * math.pi * parameters["m"] - 1.25 * parameters["m"]
+           * math.tan(math.radians(parameters["alpha"])))
+
     x = []
     y = []
     for i in range(parameters["z"]):
         # Generate the leading curve
         for r in frange(R, parameters["r_a"], step):
             alpha = getAlpha(parameters["r_b"], r)
+            
             point = points(r, alpha)
-            point = rotate(point, (parameters["angle"] * i) + gap, (0, 0))
+            point = rotate(point, (parameters["angle"] * i) + gap / 2, (0, 0))
+
             x.append(point[0])
             y.append(point[1])
-        """
-        # Generate the curve on top of the tooth
-        for theta in frange((angle * i) + gap1 + involute(getAlpha(r_b, r_a)), (angle * i) + involute(getAlpha(r_b, r_a)) + gap2, getDeltaTheta(r_a, step)):
-            point = cartesian(r_a, theta)
-            x.append(point[0])
-            y.append(point[1])"""
         
         # Generate the trailing curve
         for r in frange(parameters["r_a"], R, step):
             alpha = getAlpha(parameters["r_b"], r)
+            
             point = points(r, -alpha)
-            point = rotate(point, (parameters["angle"] * (i + 1)) - gap, (0, 0))
+            point = rotate(point, (parameters["angle"] * (i + 1)) - gap / 2,
+                           (0, 0))
+
             x.append(point[0])
             y.append(point[1])
         
         # Generate the curve between the teeth
-        for theta in frange((parameters["angle"] * (i + 1)) - gap,
-                            (parameters["angle"] * (i + 1)) + gap,
-                            getDeltaTheta(parameters["r_f"], step)):
-            point = getCartesian(parameters["r_f"], theta)
-            x.append(point[0])
-            y.append(point[1])
+        for t in frange(math.pi, - y_0 / parameters["r"], step / 5):
+            point = trochoid(- t, parameters["r"], x_0, - y_0)
+            point = rotate(point, (parameters["angle"] * (i + 1)) - 2 * math.pi,
+                           (0, 0))
+
+            r, angle = getPolar(*point)
+                
+            if r < parameters["r_f"]:
+                point = getCartesian(parameters["r_f"],
+                                     (parameters["angle"] * (i + 1))
+                                     - 2 * math.pi)
+
+            if r < parameters["r_b"]:
+                x.append(point[0])
+                y.append(point[1])
+
+        # Generate the curve between the teeth
+        for t in frange(- y_0 / parameters["r"], math.pi, step / 5):
+            point = trochoid(t, parameters["r"], x_0, y_0)
+            point = rotate(point, (parameters["angle"] * (i + 1)) - 2 * math.pi,
+                           (0, 0))
+
+            r, angle = getPolar(*point)
+                
+            if r < parameters["r_f"]:
+                point = getCartesian(parameters["r_f"],
+                                     (parameters["angle"] * (i + 1))
+                                     - 2 * math.pi)
+
+            if r < parameters["r_b"]:
+                x.append(point[0])
+                y.append(point[1])
 
     # Add the first values to the end to make the gear meet up
     x.append(x[0])
@@ -197,13 +231,10 @@ def inside(point, centre, a, b):
         return False
 
 def intersecting(gearPoints1, centre1, angle1, gearPoints2, centre2, angle2):
+    from matplotlib import pyplot as plt
     # Currently not working
     # This function tries to determine if 2 gears intersect or are touching
-    x = []
-    y = []
-    for point in gearPoints1:
-        x.append(point[0])
-        y.append(point[1])
+    x, y = zip(*gearPoints1)
         
     a, b = rotatePointList(x, y, angle1, centre1)
     gearPoints2 = rotatePoints(gearPoints2, angle2, centre2)

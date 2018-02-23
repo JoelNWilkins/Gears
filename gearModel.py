@@ -43,54 +43,61 @@ def main(fileNames):
     points1, parameters1 = readData(fileNames[0])
     points2, parameters2 = readData(fileNames[1])
 
-    # Calculate the face width of the largest gear
-    if parameters1["z"] > parameters2["z"]:
-        faceWidth = 0.1 * parameters1["r"]
+    if (parameters1["alpha"] == parameters2["alpha"]
+        and parameters1["m"] == parameters2["m"]):
+        # Calculate the face width of the largest gear
+        if parameters1["z"] > parameters2["z"]:
+            faceWidth = 0.1 * parameters1["r"]
+        else:
+            faceWidth = 0.1 * parameters2["r"]
+
+        setCaption("Building gear 1...")
+        # Create a 2D profile of the gear
+        profile = shapes.points(pos=points1)
+        # extrusion is used to project a 2D shape to 3D
+        gear1 = extrusion(path=[vector(-faceWidth/2, 0, 0),
+                                vector(faceWidth/2, 0, 0)],
+                          shape=profile, axis=vector(0, 0, 0))
+        gear1.profile = profile
+        # Set the position of gear so the pitch point is at the origin
+        gear1.pos = vector(-parameters1["r"], 0, 0)
+        # Rotate the gear so that it faces the camera
+        gear1.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear1.pos)
+        gear1.angle = 0
+
+        setCaption("Building gear 2...")
+        # Create a 2D profile of the gear
+        profile = shapes.points(pos=points2)
+        # extrusion is used to project a 2D shape to 3D
+        gear2 = extrusion(path=[vector(-faceWidth/2, 0, 0),
+                                vector(faceWidth/2, 0, 0)],
+                          shape=profile, axis=vector(0, 0, 0))
+        gear2.profile = profile
+        # Set the position of the gear so the pitch point is at the origin
+        gear2.pos = vector(parameters2["r"], 0, 0)
+        # Rotate the gear so that it faces the camera
+        gear2.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear2.pos)
+        gear2.rotate(angle=math.pi, axis=vector(1, 0, 0), origin=gear2.pos)
+        gear2.rotate(angle=parameters2["angle"]/2, axis=gear2.axis,
+                     origin=gear2.pos)
+        gear2.angle = parameters2["angle"] / 2
+
+        # Clear the caption and create the speed control slider
+        setCaption("")
+        s = SpeedControl(min=0, max=0.1, value=0.01)
+
+        while True:
+            # Rotate the gears depending on the speed
+            gear1.rotate(angle=s.getSpeed(), axis=gear1.axis, origin=gear1.pos)
+            gear2.rotate(angle=s.getSpeed() * parameters1["z"]
+                         / parameters2["z"], axis=gear2.axis, origin=gear2.pos)
+            gear1.angle += s.getSpeed()
+            gear2.angle += s.getSpeed() * parameters1["z"] / parameters2["z"]
+
+            # Slow down the program to avoid using too much CPU power
+            rate(25)
     else:
-        faceWidth = 0.1 * parameters2["r"]
-
-    setCaption("Building gear 1...")
-    # Create a 2D profile of the gear
-    profile = shapes.points(pos=points1)
-    # extrusion is used to project a 2D shape to 3D
-    gear1 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
-                      shape=profile, axis=vector(0, 0, 0))#, color=vector(255, 0, 0))
-    gear1.profile = profile
-    # Set the position of gear so the pitch point is at the origin
-    gear1.pos = vector(-parameters1["r"], 0, 0)
-    # Rotate the gear so that it faces the camera
-    gear1.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear1.pos)
-    gear1.angle = 0
-
-    setCaption("Building gear 2...")
-    # Create a 2D profile of the gear
-    profile = shapes.points(pos=points2)
-    # extrusion is used to project a 2D shape to 3D
-    gear2 = extrusion(path=[vector(-faceWidth/2, 0, 0), vector(faceWidth/2, 0, 0)],
-                      shape=profile, axis=vector(0, 0, 0))#, color=vector(0, 0, 255))
-    gear2.profile = profile
-    # Set the position of the gear so the pitch point is at the origin
-    gear2.pos = vector(parameters2["r"], 0, 0)
-    # Rotate the gear so that it faces the camera
-    gear2.rotate(angle=math.pi/2, axis=vector(0, 1, 0), origin=gear2.pos)
-    gear2.rotate(angle=math.pi, axis=vector(1, 0, 0), origin=gear2.pos)
-    gear2.rotate(angle=parameters2["angle"]/2, axis=gear2.axis, origin=gear2.pos)
-    gear2.angle = parameters2["angle"] / 2
-
-    # Clear the caption and create the speed control slider
-    setCaption("")
-    s = SpeedControl(min=0, max=0.1, value=0.01)
-
-    while True:
-        # Rotate the gears depending on the speed
-        gear1.rotate(angle=s.getSpeed(), axis=gear1.axis, origin=gear1.pos)
-        gear2.rotate(angle=s.getSpeed() * parameters1["z"] / parameters2["z"],
-                     axis=gear2.axis, origin=gear2.pos)
-        gear1.angle += s.getSpeed()
-        gear2.angle += s.getSpeed() * parameters1["z"] / parameters2["z"]
-
-        # Slow down the program to avoid using too much CPU power
-        rate(25)
+        print("In order for 2 gears to interact they must have the same pressure angle and module.")
 
 if __name__ == "__main__":
     # Get a list of xls files in the data directory

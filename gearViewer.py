@@ -19,9 +19,11 @@ from tkinter import messagebox
 
 # matplotlib is the module to generate the graphs
 import matplotlib
+import matplotlib.style
 
 # Change the default directory for saving figures
 matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
+#matplotlib.style.use("seaborn-notebook")
 
 class GraphFrame(Graph):    
     def __init__(self, parent, *args, fileName=None, **kwargs):
@@ -33,11 +35,11 @@ class GraphFrame(Graph):
 
         # Reference the graph frame items
         self.fig = self.figure()
-
-        self.axis = self.fig.add_subplot(111)
-        
         self.canvas = self.canvas()
         self.toolbar = self.toolbar()
+
+        # Create a new axis to draw to
+        self.axis = self.fig.add_subplot(111)
         
         # The equal means that the graph will not be distorted
         self.axis.axis("equal")
@@ -99,8 +101,8 @@ class GraphFrame(Graph):
                         x2[i] = x2[i] + parameters2["r"]
 
                     # Plot the points by invoking the GraphFrame plot function
-                    self.plot(x1, y1)
-                    self.plot(x2, y2, clear=False)
+                    self.plot(x1, y1, style="ro")
+                    self.plot(x2, y2, style="ro", clear=False)
 
                     # Add the points on the line of centres
                     xc = [-parameters1["r"], parameters2["r"], 0]
