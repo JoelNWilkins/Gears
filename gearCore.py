@@ -62,6 +62,12 @@ def getPolar(x, y):
     # Converts cartesian coordinates to polar coordinates
     r = math.sqrt(x**2 + y**2)
     theta = math.atan(y / x)
+
+    if x < 0:
+        theta += math.pi
+    if x > 0 and y < 0:
+        theta += 2 * math.pi
+    
     return (r, theta)
 
 def convertPolar(x, y):
@@ -219,6 +225,12 @@ def writeData(fileName, points, parameters):
 
     # Save the workbook to a file
     workbook.save(fileName)
+
+def readOptions(fileName):
+    data = pickle.load(open(fileName, "rb"))
+
+def writeOptions(fileName, data):
+    pickle.dump(data, open(fileName, "wb"))
 
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed

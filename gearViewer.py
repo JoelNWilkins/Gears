@@ -21,6 +21,9 @@ from tkinter import messagebox
 import matplotlib
 import matplotlib.style
 
+# pickle is used to save the options data
+import pickle
+
 # Change the default directory for saving figures
 matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
 #matplotlib.style.use("seaborn-notebook")
@@ -101,8 +104,8 @@ class GraphFrame(Graph):
                         x2[i] = x2[i] + parameters2["r"]
 
                     # Plot the points by invoking the GraphFrame plot function
-                    self.plot(x1, y1, style="ro")
-                    self.plot(x2, y2, style="ro", clear=False)
+                    self.plot(x1, y1)
+                    self.plot(x2, y2, clear=False)
 
                     # Add the points on the line of centres
                     xc = [-parameters1["r"], parameters2["r"], 0]
@@ -330,7 +333,7 @@ class MenuBar(tk.Menu):
         self.add_cascade(label="Options", menu=self.optionsMenu)
 
         # Create the help menu
-        self.add_command(label="Help", command=self.help)
+        #self.add_command(label="Help", command=self.help)
 
         # Add the key bindings
         parent.bind("<Control-o>", self.openFile)
@@ -420,6 +423,7 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Viewer")
+    root.iconbitmap(default="images/logo.ico")
 
     # Allow the user to resize the graph
     root.rowconfigure(0, weight=1)

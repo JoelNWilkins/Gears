@@ -55,6 +55,9 @@ class InputFrame(tk.Toplevel):
                                 command=self.generateGear)
         self.button.pack(pady=2)
 
+        # Bring the frame into focus
+        self.focus_force()
+
     def generateGear(self, *args, **kwargs):
         try:
             # Read the values from the entries
@@ -88,21 +91,15 @@ The gear cannot be saved because the file is already open in another program."""
             raise
         
         # Call the command which has been passed to the frame
-        if self.command != None:
-            self.command()
+        self.destroy()
 
 def newGear(*args, **kwargs):
     def closeWindow():
         inputFrame.destroy()
 
-    # Create a popup window for the user to enter the parameters
-    #window = tk.Tk()
-    #window.title("New Gear")
-
     # Add the input frame to the window and pass the command to close the window
     inputFrame = InputFrame(defaults={"z": None, "alpha": 20, "m": None},
                             command=closeWindow, padx=7, pady=5)
-    #inputFrame.pack(padx=7, pady=5)
 
 def modelGear(*args, **kwargs):
     # Ask the user to select the file name to save as
@@ -258,6 +255,7 @@ if __name__ == "__main__":
     # Create a new tkinter window
     root = tk.Tk()
     root.title("Gear Generator")
+    root.iconbitmap(default="images/logo.ico")
 
     # Allow the user to resize the graph
     root.rowconfigure(0, weight=1)
@@ -273,7 +271,7 @@ if __name__ == "__main__":
                                     accelerator="Ctrl-N")
 
     # Add the command to run the vpython model
-    menubar.add_command(label="Model", command=modelGear)
+    #menubar.add_command(label="Model", command=modelGear)
     
     # Add the key bindings
     root.bind("<Control-n>", newGear)
