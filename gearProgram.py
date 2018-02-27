@@ -20,9 +20,10 @@ from tkinter import messagebox
 # matplotlib is the module to generate the graphs
 import matplotlib
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 # PIL is used for image manipulation
-from PIL import Image
+from PIL import Image, ImageTk
 import io
 
 # sys is used to get the arguments from the command line
@@ -70,6 +71,10 @@ class GearGUI(tk.Tk):
         self.showRoot.set(True)
         self.showCentres.set(True)
 
+        # A variable to control the animation state
+        self.animationOn = tk.BooleanVar()
+        self.animationOn.set(True)
+
         # Add the menubar
         self.menubar = MenuBar(self)
 
@@ -101,6 +106,9 @@ class GearGUI(tk.Tk):
                 points1, parameters1 = readData(fileNames[0])
                 points2, parameters2 = readData(fileNames[1])
 
+                self.parameters1 = parameters1
+                self.parameters2 = parameters2
+
                 if (parameters1["alpha"] == parameters2["alpha"]
                     and parameters1["m"] == parameters2["m"]):
                     # Convert the points to a list of x and y values
@@ -117,14 +125,14 @@ class GearGUI(tk.Tk):
 
                     # Adjust the x values so the gears don't overlap
                     for i in range(len(x1)):
-                        x1[i] = x1[i] - parameters1["r"]
+                        x1[i] -= parameters1["r"]
                     for i in range(len(x2)):
-                        x2[i] = x2[i] + parameters2["r"]
+                        x2[i] += parameters2["r"]
 
                     # Plot the points on the gear
                     self.axis.clear()
-                    self.axis.plot(x1, y1, "r")
-                    self.axis.plot(x2, y2, "r")
+                    self.gear1, = self.axis.plot(x1[:], y1[:], "r")
+                    self.gear2, = self.axis.plot(x2[:], y2[:], "r")
 
                     # Add the points on the line of centres
                     xc = [-parameters1["r"], parameters2["r"], 0]
@@ -192,6 +200,9 @@ class GearGUI(tk.Tk):
 
                     # Hide the legend if it is empty
                     self.axis.get_legend().set_visible(len(lines) != 0)
+
+                    # Start the animation loop
+                    self.after(5, self.animate)
                 else:
                     messagebox.showinfo("Incompatible Gears",
 """Incompatible Gears.
@@ -269,6 +280,32 @@ Close the program and try again.""")
         except:
             pass
 
+    def animate(self, *args, **kwargs):
+        # Get the current positions of the points
+        x1, y1 = self.gear1.get_data()
+        x2, y2 = self.gear2.get_data()
+
+        # Calculate the ratio of speeds
+        ratio = self.parameters1["z"] / self.parameters2["z"]
+
+        # Rotate the points
+        x1, y1 = rotatePointList(x1, y1,
+                                 100 / self.parameters1["r"],
+                                 (-self.parameters1["r"], 0))
+        x2, y2 = rotatePointList(x2, y2,
+                                 - ratio * 100 / self.parameters1["r"],
+                                 (self.parameters2["r"], 0))
+
+        # Update the points
+        self.gear1.set_data(x1, y1)
+        self.gear2.set_data(x2, y2)
+
+        # Update the canvas to show the new points
+        self.canvas.draw()
+
+        # Rebind the loop to create an animation
+        self.after(5, self.animate)
+
     def exportImage(self, *args, **kwargs):
         if "linewidth" in kwargs.keys():
             linewidth = kwargs["linewidth"]
@@ -279,6 +316,11 @@ Close the program and try again.""")
             size_pixels = kwargs["size"]
         else:
             size_pixels = (1024, 1024)
+
+        if "cross" in kwargs.keys():
+            cross = kwargs["cross"]
+        else:
+            cross = True
         
         # Load the gear data from the xls file
         points, parameters = readData(self.fileNames[0])
@@ -308,21 +350,22 @@ Close the program and try again.""")
         axes.plot(x, y, "k", linewidth=linewidth)
 
         # Plot invisible points to fix the boundries
-        axes.plot(0, -parameters["r_a"], alpha=0, markersize=0.25)
-        axes.plot(0, parameters["r_a"], alpha=0, markersize=0.25)
-        axes.plot(-parameters["r_a"], 0, alpha=0, markersize=0.25)
-        axes.plot(parameters["r_a"], 0, alpha=0, markersize=0.25)
+        axes.plot(0, -parameters["r_a"], alpha=1, markersize=0.25)
+        axes.plot(0, parameters["r_a"], alpha=1, markersize=0.25)
+        axes.plot(-parameters["r_a"], 0, alpha=1, markersize=0.25)
+        axes.plot(parameters["r_a"], 0, alpha=1, markersize=0.25)
 
         if parameters["r_f"] < parameters["r_b"]:
             R = parameters["r_f"]
         else:
             R = parameters["r_b"]
 
-        # Plot the centre cross
-        axes.plot([0, 0], [-R/4, R/4], "k",
-                  linewidth=linewidth)
-        axes.plot([-R/4, R/4], [0, 0], "k",
-                  linewidth=linewidth)
+        if cross:
+            # Plot the centre cross
+            axes.plot([0, 0], [-R/4, R/4], "k",
+                      linewidth=linewidth)
+            axes.plot([-R/4, R/4], [0, 0], "k",
+                      linewidth=linewidth)
 
         # Get the name of the file to save to
         if "\\" in self.fileNames[0]:
@@ -330,6 +373,7 @@ Close the program and try again.""")
         elif "/" in self.fileNames[0]:
             fileName = self.fileNames[0].split("/")[-1].replace(".xls", ".png")
 
+        # Ask the user to select the file name to save as
         fileName = asksaveasfilename(parent=self,
                                      initialdir=os.getcwd() + "\\images",
                                      initialfile=fileName,
@@ -350,8 +394,24 @@ Close the program and try again.""")
             # Save the figure as a png
             fig.savefig(fileName, transparent=True)
 
+        self.imageViewer(fileName)
+
         return True
 
+    def imageViewer(self, fileName, *args, **kwargs):
+        window = tk.Toplevel(padx=5, pady=5)
+
+        if "\\" in fileName:
+            window.title(fileName.split("\\")[-1])
+        elif "/" in fileName:
+            window.title(fileName.split("/")[-1])
+        
+        photo = ImageTk.PhotoImage(Image.open(fileName).resize((256, 256)))
+
+        panel = tk.Label(window, image=photo, width=256, height=256)
+        panel.image = photo
+        panel.grid(row=0, column=0, sticky="nsew")
+            
     def resize(self, *args, **kwargs):
         # Check to see if the window has been resized and update the graph
         width = self.winfo_width()
@@ -697,25 +757,33 @@ class MenuBar(tk.Menu):
         # Add the sub-menu to the menubar
         self.add_cascade(label="File", menu=self.fileMenu)
 
+        # Create the lines menu
+        self.linesMenu = tk.Menu(self, tearoff=False)
+        # Bind the lines checkbuttons to the menu
+        self.linesMenu.add_checkbutton(label="Reference Circle",
+                                       command=self.updateGraph,
+                                       variable=self.master.showRef)
+        self.linesMenu.add_checkbutton(label="Base Circle",
+                                       command=self.updateGraph,
+                                       variable=self.master.showBase)
+        self.linesMenu.add_checkbutton(label="Tip Circle",
+                                       command=self.updateGraph,
+                                       variable=self.master.showTip)
+        self.linesMenu.add_checkbutton(label="Root Circle",
+                                       command=self.updateGraph,
+                                       variable=self.master.showRoot)
+        self.linesMenu.add_checkbutton(label="Line of Centres",
+                                       command=self.updateGraph,
+                                       variable=self.master.showCentres)
+
         # Create the options menu
         # Create a sub-menu to go on the menubar
         self.optionsMenu = tk.Menu(self, tearoff=False)
-        # Bind the options to the menu as checkbuttons
-        self.optionsMenu.add_checkbutton(label="Reference Circle",
-                                       command=self.updateGraph,
-                                       variable=self.master.showRef)
-        self.optionsMenu.add_checkbutton(label="Base Circle",
-                                       command=self.updateGraph,
-                                       variable=self.master.showBase)
-        self.optionsMenu.add_checkbutton(label="Tip Circle",
-                                       command=self.updateGraph,
-                                       variable=self.master.showTip)
-        self.optionsMenu.add_checkbutton(label="Root Circle",
-                                       command=self.updateGraph,
-                                       variable=self.master.showRoot)
-        self.optionsMenu.add_checkbutton(label="Line of Centres",
-                                       command=self.updateGraph,
-                                       variable=self.master.showCentres)
+        # Bind the options to the menu
+        self.optionsMenu.add_cascade(label="Lines", menu=self.linesMenu)
+        self.optionsMenu.add_checkbutton(label="Animation",
+                                         command=self.updateAnimation,
+                                         variable=self.master.animationOn)
         # Add the sub-menu to the menubar
         self.add_cascade(label="Options", menu=self.optionsMenu)
 
@@ -774,11 +842,12 @@ class MenuBar(tk.Menu):
         def export(*args, **kwargs):
             width = int(sizeSelecter.get().split("x")[0])
             if self.master.exportImage(linewidth=float(linewidthEntry.get()),
-                                       size=(width, width)):
+                                       size=(width, width),
+                                       cross=showCross.get()):
                 window.destroy()
             
         window = tk.Toplevel(padx=7, pady=5)
-        window.title("Export as PNG")
+        window.title("Export as Image")
 
         # Create a list of the possible sizes
         sizes = []
@@ -799,8 +868,15 @@ class MenuBar(tk.Menu):
         linewidthEntry.grid(row=1, column=1, sticky="ew", pady=2)
         linewidthEntry.insert(0, 1)
 
+        showCross = tk.BooleanVar()
+        showCross.set(True)
+
+        crossCheck = tk.Checkbutton(window, text="Centre cross",
+                                    variable=showCross)
+        crossCheck.grid(row=2, column=1, sticky="w", pady=2)
+
         exportButton = tk.Button(window, text="Export", command=export)
-        exportButton.grid(row=2, column=0, columnspan=2, sticky="ns", pady=2)
+        exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
         # Bring the frame into focus
         window.focus_force()
@@ -810,6 +886,9 @@ class MenuBar(tk.Menu):
 
     def updateGraph(self, *args, **kwargs):
         self.master.updateGraph()
+
+    def updateAnimation(self, *args, **kwargs):
+        pass
         
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
