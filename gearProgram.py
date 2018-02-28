@@ -63,6 +63,7 @@ class GearGUI(tk.Tk):
         self.showTip = tk.BooleanVar()
         self.showRoot = tk.BooleanVar()
         self.showCentres = tk.BooleanVar()
+        self.showAction = tk.BooleanVar()
 
         # Set the values of the variables
         self.showRef.set(True)
@@ -70,6 +71,7 @@ class GearGUI(tk.Tk):
         self.showTip.set(True)
         self.showRoot.set(True)
         self.showCentres.set(True)
+        self.showAction.set(True)
 
         # A variable to control the animation state
         self.animationOn = tk.BooleanVar()
@@ -92,13 +94,15 @@ class GearGUI(tk.Tk):
             self.openFile(self.fileNames)
 
         # Check to see if the window has been resized
-        self.width = self.winfo_width()
-        self.height = self.winfo_height()
-        self.after(100, self.resize)
+        self.animationStatus = None
+        self.bind("<Configure>", self.configure)
 
-    def openFile(self, fileNames):
+    def openFile(self, fileNames, limits=False):
         # Update the file names of the current gear(s)
         self.fileNames = fileNames
+
+        xlim = self.axis.get_xlim()
+        ylim = self.axis.get_ylim()
 
         try:
             if len(fileNames) > 1:
@@ -116,8 +120,8 @@ class GearGUI(tk.Tk):
                     x2, y2 = zip(*points2)
 
                     # Rotate the second gear
-                    x2, y2 = rotatePointList(x2, y2, parameters2["angle"] / 2,
-                                             (0, 0))
+                    x2, y2 = rotatePointList(x2, y2, parameters2["angle"] / 2
+                        - parameters2["j_t"] / parameters2["r"], (0, 0))
 
                     # Convert the x and y values to lists
                     x1, y1 = list(x1), list(y1)
@@ -129,24 +133,40 @@ class GearGUI(tk.Tk):
                     for i in range(len(x2)):
                         x2[i] += parameters2["r"]
 
-                    # Plot the points on the gear
+                    # Clear the plot
                     self.axis.clear()
-                    self.gear1, = self.axis.plot(x1[:], y1[:], "r")
-                    self.gear2, = self.axis.plot(x2[:], y2[:], "r")
 
                     # Add the points on the line of centres
                     xc = [-parameters1["r"], parameters2["r"], 0]
                     yc = [0, 0, 0]
 
+                    # Add the points on the line of action
+                    xa = [(- parameters1["r"]
+                          * math.tan(math.radians(parameters1["alpha"])))
+                          / (math.tan(math.radians(parameters1["alpha"]))
+                          + (1 / math.tan(math.radians(parameters1["alpha"])))),
+                          0,
+                          (parameters2["r"]
+                          * math.tan(math.radians(parameters2["alpha"])))
+                          / (math.tan(math.radians(parameters2["alpha"]))
+                          + (1 / math.tan(math.radians(parameters2["alpha"]))))]
+                    ya = [parameters1["r"] /
+                          (math.tan(math.radians(parameters1["alpha"]))
+                           + (1 / math.tan(math.radians(parameters1["alpha"])))),
+                          0,
+                          - parameters2["r"] /
+                          (math.tan(math.radians(parameters2["alpha"]))
+                           + (1 / math.tan(math.radians(parameters2["alpha"]))))]
+
                     # Remove the path from the file name and set the title
                     if "\\" in fileNames[0]:
                         self.setTitle("{} and {}".format(
-                            fileNames[0].split("\\")[-1],
-                            fileNames[1].split("\\")[-1]))
+                            fileNames[0].split("\\")[-1].split(".")[0] ,
+                            fileNames[1].split("\\")[-1].split(".")[0]))
                     else:
                         self.setTitle("{} and {}".format(
-                            fileNames[0].split("/")[-1],
-                            fileNames[1].split("/")[-1]))
+                            fileNames[0].split("/")[-1].split(".")[0],
+                            fileNames[1].split("/")[-1].split(".")[0]))
 
                     # Lines and labels to be passed to the legend
                     lines = []
@@ -181,10 +201,18 @@ class GearGUI(tk.Tk):
                                                 centre=(xc[1], yc[1]))
                         lines.append(root1)
                         labels.append("Root Circle")
+                    if self.showAction.get():
+                        lineOfAction, = self.axis.plot(xa, ya, "go-")
+                        lines.append(lineOfAction)
+                        labels.append("Line of Action")
                     if self.showCentres.get():
                         lineOfCentres, = self.axis.plot(xc, yc, "bo-")
                         lines.append(lineOfCentres)
                         labels.append("Line of Centres")
+
+                    # Plot the points on the gear
+                    self.gear1, = self.axis.plot(x1[:], y1[:], "r")
+                    self.gear2, = self.axis.plot(x2[:], y2[:], "r")
 
                     # Adjust the number of columns of the legend
                     if len(lines) > 4 or len(lines) == 3:
@@ -217,15 +245,14 @@ In order 2 for gears to mesh they must have the same module and pressure angle."
                 # Convert the points into a list of x and y values
                 x, y = zip(*points)
 
-                # Plot the points on the gear
+                # Clear the plot
                 self.axis.clear()
-                self.axis.plot(x, y, "r")
 
                 # Remove the path from the file name and set the title
                 if "\\" in fileName:
-                    self.setTitle(fileName.split("\\")[-1])
+                    self.setTitle(fileName.split("\\")[-1].split(".")[0])
                 else:
-                    self.setTitle(fileName.split("/")[-1])
+                    self.setTitle(fileName.split("/")[-1].split(".")[0])
 
                 # Lines and labels to be passed to the legend
                 lines = []
@@ -249,6 +276,9 @@ In order 2 for gears to mesh they must have the same module and pressure angle."
                     lines.append(root)
                     labels.append("Root Circle")
 
+                # Plot the points on the gear
+                self.axis.plot(x, y, "r")
+
                 # Adjust the number of columns of the legend to make it look neater
                 if len(lines) == 3:
                     cols = 3
@@ -269,42 +299,21 @@ The gear cannot be opened because it is already open in another program.
 Close the program and try again.""")
             
         try:
-            # Reset the toolbar
-            self.toolbar.update()
+            if not limits:
+                # Reset the toolbar
+                self.toolbar.update()
         except:
             pass
 
         try:
+            if limits:
+                self.axis.set_xlim(xlim)
+                self.axis.set_ylim(ylim)
+            
             # Update the canvas to show the gear
             self.canvas.draw()
         except:
             pass
-
-    def animate(self, *args, **kwargs):
-        # Get the current positions of the points
-        x1, y1 = self.gear1.get_data()
-        x2, y2 = self.gear2.get_data()
-
-        # Calculate the ratio of speeds
-        ratio = self.parameters1["z"] / self.parameters2["z"]
-
-        # Rotate the points
-        x1, y1 = rotatePointList(x1, y1,
-                                 100 / self.parameters1["r"],
-                                 (-self.parameters1["r"], 0))
-        x2, y2 = rotatePointList(x2, y2,
-                                 - ratio * 100 / self.parameters1["r"],
-                                 (self.parameters2["r"], 0))
-
-        # Update the points
-        self.gear1.set_data(x1, y1)
-        self.gear2.set_data(x2, y2)
-
-        # Update the canvas to show the new points
-        self.canvas.draw()
-
-        # Rebind the loop to create an animation
-        self.after(5, self.animate)
 
     def exportImage(self, *args, **kwargs):
         if "linewidth" in kwargs.keys():
@@ -394,38 +403,73 @@ Close the program and try again.""")
             # Save the figure as a png
             fig.savefig(fileName, transparent=True)
 
-        self.imageViewer(fileName)
+        imageViewer = ImageViewer(self, fileName)
 
         return True
 
-    def imageViewer(self, fileName, *args, **kwargs):
-        window = tk.Toplevel(padx=5, pady=5)
+    def animate(self, *args, **kwargs):
+        if self.animationOn.get():
+            # Get the current positions of the points
+            x1, y1 = self.gear1.get_data()
+            x2, y2 = self.gear2.get_data()
 
-        if "\\" in fileName:
-            window.title(fileName.split("\\")[-1])
-        elif "/" in fileName:
-            window.title(fileName.split("/")[-1])
+            # Calculate the ratio of speeds
+            ratio = self.parameters1["z"] / self.parameters2["z"]
+
+            # Rotate the points
+            x1, y1 = rotatePointList(x1, y1,
+                - self.parameters1["p"] / (10 * self.parameters1["r"]),
+                (-self.parameters1["r"], 0))
+            x2, y2 = rotatePointList(x2, y2,
+                ratio * self.parameters1["p"] / (10 * self.parameters1["r"]),
+                (self.parameters2["r"], 0))
+
+            # Update the points
+            self.gear1.set_data(x1, y1)
+            self.gear2.set_data(x2, y2)
+
+            # Update the canvas to show the new points
+            self.canvas.draw()
         
-        photo = ImageTk.PhotoImage(Image.open(fileName).resize((256, 256)))
+            # Rebind the loop to create an animation
+            self.after(5, self.animate)
 
-        panel = tk.Label(window, image=photo, width=256, height=256)
-        panel.image = photo
-        panel.grid(row=0, column=0, sticky="nsew")
-            
-    def resize(self, *args, **kwargs):
-        # Check to see if the window has been resized and update the graph
-        width = self.winfo_width()
-        height = self.winfo_height()
+    def updateAnimation(self, *args, **kwargs):
+        if "animation" in kwargs.keys():
+            if kwargs["animation"]:
+                self.animationOn.set(kwargs["animation"])
+                
+                if self.animationOn.get():
+                    # Start the animation loop
+                    self.after(5, self.animate)
+            else:
+                self.animationOn.set(False)
+        elif not self.animationOn.get():
+            self.animationOn.set(True)
+            # Start the animation loop
+            self.after(5, self.animate)
+        else:
+            self.animationOn.set(False)
 
-        if width != self.width or height != self.height:
-            self.width = width
-            self.height = height
-
-            self.updateGraph()
+    def restartAnimation(self, *args, **kwargs):
+        if self.animationStatus != None:
+            self.animationOn.set(self.animationStatus)
+            self.animationStatus = None
 
     def updateGraph(self, *args, **kwargs):
         # Reload the currently opened file
-        self.openFile(self.fileNames)
+        self.openFile(self.fileNames, limits=True)
+
+    def configure(self, event):
+        if (event.width == self.winfo_width()
+            and event.height == self.winfo_height()):
+            if self.animationStatus == None:
+                self.animationStatus = self.animationOn.get()
+            self.animationOn.set(False)
+
+            self.updateGraph(limits=True)
+
+            self.after(500, self.restartAnimation)
 
     def setTitle(self, text):
         # Change the title of the window
@@ -453,14 +497,22 @@ Close the program and try again.""")
         # Plot the points onto the graph
         return self.axis.plot(x, y, style)
 
+    def trochoid(self, t, R, x_0, y_0):
+        # A function to generate the root fillet curve
+        x = ((R + x_0) * math.cos(t) + (R * t + y_0) * math.sin(t))
+        y = (- (R + x_0) * math.sin(t) + (R * t + y_0) * math.cos(t))
+
+        return (x, y)
+
     def generateGear(self, *args, **kwargs):
         z = kwargs["z"]
         alpha = kwargs["alpha"]
         m = kwargs["m"]
+        backlash = kwargs["backlash"]
         
         try:
             # Calculate the parameters for the gear
-            parameters = calculateParameters(z, alpha, m)
+            parameters = calculateParameters(z, alpha, m, backlash)
 
             # Calculate the points on the gear
             x, y = self.gearPoints(parameters, 0.075)
@@ -490,13 +542,6 @@ The gear cannot be saved because the file is already open in another program."""
 
         return False
 
-    def trochoid(self, t, R, x_0, y_0):
-        # A function to generate the root fillet curve
-        x = ((R + x_0) * math.cos(t) + (R * t + y_0) * math.sin(t))
-        y = (- (R + x_0) * math.sin(t) + (R * t + y_0) * math.cos(t))
-
-        return (x, y)
-
     def gearPoints(self, parameters, step):
         # This is the main function to generate a gear
 
@@ -513,9 +558,9 @@ The gear cannot be saved because the file is already open in another program."""
             R = parameters["r_b"]
 
         # Calculate the point used to generate the trochoid curve
-        x_0 = - 1.25 * parameters["m"]
-        y_0 = (0.25 * math.pi * parameters["m"] - 1.25 * parameters["m"]
-               * math.tan(math.radians(parameters["alpha"])))
+        x_0 = - (parameters["h_a"] + parameters["c"])
+        y_0 = (0.25 * math.pi * parameters["m"]
+               + x_0 * math.tan(math.radians(parameters["alpha"])))
 
         x = []
         y = []
@@ -586,6 +631,7 @@ The gear cannot be saved because the file is already open in another program."""
                                     3 * getDeltaTheta(parameters["r_b"], step)):
                     point = self.trochoid(- theta, parameters["r"], x_0, - y_0)
                     point = rotate(point, (parameters["angle"] * (i + 1))
+                                   - (parameters["j_t"] / parameters["d"])
                                    - 2 * math.pi, (0, 0))
 
                     r, angle = getPolar(*point)
@@ -627,6 +673,7 @@ The gear cannot be saved because the file is already open in another program."""
                                     3 * getDeltaTheta(parameters["r_b"], step)):
                     point = self.trochoid(theta, parameters["r"], x_0, y_0)
                     point = rotate(point, (parameters["angle"] * (i + 1))
+                                   + (parameters["j_t"] / parameters["d"])
                                    - 2 * math.pi, (0, 0))
 
                     r, angle = getPolar(*point)
@@ -673,29 +720,39 @@ class InputFrame(tk.Toplevel):
         # Create labels and entries for the input parameters
         self.label1 = tk.Label(self.inputFrame, text="Number of teeth: ")
         self.label1.grid(row=0, column=0, sticky="e")
-        self.entry1 = tk.Entry(self.inputFrame)
+        self.entry1 = ttk.Entry(self.inputFrame)
         self.entry1.grid(row=0, column=1, sticky="w", pady=2)
         self.label2 = tk.Label(self.inputFrame, text="Pressure angle: (°) ")
         self.label2.grid(row=1, column=0, sticky="e")
-        self.entry2 = tk.Entry(self.inputFrame)
+        self.entry2 = ttk.Entry(self.inputFrame)
         self.entry2.grid(row=1, column=1, sticky="w", pady=2)
         self.label3 = tk.Label(self.inputFrame, text="Module: (mm)")
         self.label3.grid(row=2, column=0, sticky="e")
-        self.entry3 = tk.Entry(self.inputFrame)
+        self.entry3 = ttk.Entry(self.inputFrame)
         self.entry3.grid(row=2, column=1, sticky="w", pady=2)
+        self.label4 = tk.Label(self.inputFrame, text="Backlash: (%)")
+        self.label4.grid(row=3, column=0, sticky="e")
+        self.entry4 = ttk.Entry(self.inputFrame)
+        self.entry4.grid(row=3, column=1, sticky="w", pady=2)
 
         # Insert default values into the entries if defaults exist
         if defaults != None:
-            if defaults["z"] != None:
-                self.entry1.insert(0, defaults["z"])
-            if defaults["alpha"] != None:
-                self.entry2.insert(0, defaults["alpha"])
-            if defaults["m"] != None:
-                self.entry3.insert(0, defaults["m"])
+            if "z" in defaults.keys():
+                if defaults["z"] != None:
+                    self.entry1.insert(0, defaults["z"])
+            if "alpha" in defaults.keys():
+                if defaults["alpha"] != None:
+                    self.entry2.insert(0, defaults["alpha"])
+            if "m" in defaults.keys():
+                if defaults["m"] != None:
+                    self.entry3.insert(0, defaults["m"])
+            if "backlash" in defaults.keys():
+                if defaults["backlash"] != None:
+                    self.entry4.insert(0, defaults["backlash"])
 
         # Create a button to generate the gear
-        self.button = tk.Button(self.buttonFrame, text="Generate Gear",
-                                command=self.generateGear)
+        self.button = ttk.Button(self.buttonFrame, text="Generate Gear",
+                                 command=self.generateGear)
         self.button.pack(pady=2)
 
         # Bring the frame into focus
@@ -707,9 +764,11 @@ class InputFrame(tk.Toplevel):
             z = int(self.entry1.get())
             alpha = float(self.entry2.get())
             m = float(self.entry3.get())
+            backlash = float(self.entry4.get()) / 100
         
             # Create a gear from the inputed values
-            if self.master.generateGear(z=z, alpha=alpha, m=m):
+            if self.master.generateGear(z=z, alpha=alpha, m=m,
+                                        backlash=backlash):
                 # Close the window if successful
                 self.destroy()
             else:
@@ -725,6 +784,59 @@ Either some are missing or are in the wrong format.""")
             self.focus_force()
         except:
             raise
+
+class ImageViewer(tk.Toplevel):
+    def __init__(self, master, fileName, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+        
+        if "size" in kwargs.keys():
+            size = kwargs["size"]
+        else:
+            size = (256, 256)
+
+        # Allow the user to resize the image
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        # Get the name of the file for the title
+        if "\\" in fileName:
+            title = fileName.split("\\")[-1].split(".")[0]
+        elif "/" in fileName:
+            title = fileName.split("/")[-1].split(".")[0]
+
+        self.title("{} - {}".format(title,
+                                    self.master.title().split(" - ")[-1]))
+
+        # Load the image to view
+        self.image = Image.open(fileName)
+
+        # Create a version of the image to go in the label
+        copy = self.image.resize(size)
+        photo = ImageTk.PhotoImage(copy)
+
+        # Create the tkinter widget to hold the image
+        self.panel = tk.Label(self, image=photo, width=size[0], height=size[1])
+        self.panel.image = photo
+        self.panel.grid(row=0, column=0, sticky="nsew")
+
+        # Bind the events to the window
+        self.bind("<Escape>", self.destroy)
+        self.bind("<Configure>", self.resize)
+
+    def resize(self, event):
+        # Resize the image is the window is resized
+        if event.width < event.height:
+            size = (event.width, event.width)
+        else:
+            size = (event.height, event.height)
+            
+        # Create a version of the image to go in the label
+        copy = self.image.resize(size)
+        photo = ImageTk.PhotoImage(copy)
+
+        # Update the tkinter widget with the new image
+        self.panel.config(image=photo)
+        self.panel.image = photo
 
 class MenuBar(tk.Menu):
     def __init__(self, parent, *args, **kwargs):
@@ -775,6 +887,9 @@ class MenuBar(tk.Menu):
         self.linesMenu.add_checkbutton(label="Line of Centres",
                                        command=self.updateGraph,
                                        variable=self.master.showCentres)
+        self.linesMenu.add_checkbutton(label="Line of Action",
+                                       command=self.updateGraph,
+                                       variable=self.master.showAction)
 
         # Create the options menu
         # Create a sub-menu to go on the menubar
@@ -783,14 +898,10 @@ class MenuBar(tk.Menu):
         self.optionsMenu.add_cascade(label="Lines", menu=self.linesMenu)
         self.optionsMenu.add_checkbutton(label="Animation",
                                          command=self.updateAnimation,
-                                         variable=self.master.animationOn)
+                                         variable=self.master.animationOn,
+                                         accelerator="Space")
         # Add the sub-menu to the menubar
         self.add_cascade(label="Options", menu=self.optionsMenu)
-
-        # Create the help menu
-        #self.add_command(label="Help", command=self.help)
-        # Add the command to run the vpython model
-        #self.add_command(label="Model", command=self.modelGear)
     
         # Add the key bindings
         self.master.bind("<Control-n>", self.newGear)
@@ -798,10 +909,11 @@ class MenuBar(tk.Menu):
         self.master.bind("<Control-Shift-KeyPress-O>", self.openMultiple)
         self.master.bind("<Alt-F4>", self.closeWindow)
         self.master.bind("<Control-W>", self.closeWindow)
+        self.master.bind("<space>", self.toggleAnimation)
 
     def newGear(self, *args, **kwargs):
         # Ask the user to input the gear parameters
-        InputFrame(self.master, defaults={"z": None, "alpha": 20, "m": None},
+        InputFrame(self.master, defaults={"alpha": 20, "backlash": 4},
                    padx=7, pady=5)
 
     def openFile(self, *args, multiple=False, **kwargs):
@@ -864,18 +976,18 @@ class MenuBar(tk.Menu):
         
         linewidthLabel = tk.Label(window, text="Linewidth:")
         linewidthLabel.grid(row=1, column=0, sticky="e", pady=2)
-        linewidthEntry = tk.Entry(window)
+        linewidthEntry = ttk.Entry(window)
         linewidthEntry.grid(row=1, column=1, sticky="ew", pady=2)
         linewidthEntry.insert(0, 1)
 
         showCross = tk.BooleanVar()
         showCross.set(True)
 
-        crossCheck = tk.Checkbutton(window, text="Centre cross",
+        crossCheck = ttk.Checkbutton(window, text="Centre cross",
                                     variable=showCross)
         crossCheck.grid(row=2, column=1, sticky="w", pady=2)
 
-        exportButton = tk.Button(window, text="Export", command=export)
+        exportButton = ttk.Button(window, text="Export", command=export)
         exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
         # Bring the frame into focus
@@ -888,7 +1000,11 @@ class MenuBar(tk.Menu):
         self.master.updateGraph()
 
     def updateAnimation(self, *args, **kwargs):
-        pass
+        self.master.updateAnimation(animation=self.master.animationOn.get())
+
+    def toggleAnimation(self, *args, **kwargs):
+        self.master.updateAnimation(
+            animation=(not self.master.animationOn.get()))
         
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
