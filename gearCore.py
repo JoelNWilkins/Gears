@@ -125,7 +125,7 @@ def circlePoints(r, step):
         y.append(point[1])
     return (x, y)
 
-def calculateParameters(z, alpha, m, backlash):
+def calculateParameters(z, alpha, m, backlash, addendum, dedendum):
     # Calculate the reference diameter and radius
     d = m * z
     r = d / 2
@@ -133,8 +133,8 @@ def calculateParameters(z, alpha, m, backlash):
     d_b = d * math.cos(math.radians(alpha))
     r_b = d_b / 2
     # Calculate the height of the addendum and dedendum
-    h_a = m
-    h_f = 1.25 * m
+    h_a = addendum * m
+    h_f = dedendum * m
     # Calculate the total height of the tooth
     h = h_a + h_f
     # Calculate the clearance of the tooth

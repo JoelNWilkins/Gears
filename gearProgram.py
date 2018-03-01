@@ -119,6 +119,15 @@ class GearGUI(tk.Tk):
                     x1, y1 = zip(*points1)
                     x2, y2 = zip(*points2)
 
+                    # Check if the gear has backlash
+                    if not "j_t" in parameters2.keys():
+                        if "j_t" in parameters1.keys():
+                            parameters2["j_t"] = parameters1["j_t"]
+                            self.parameters2["j_t"] = parameters1["j_t"]
+                        else:
+                            parameters2["j_t"] = 0
+                            self.parameters2["j_t"] = 0
+
                     # Rotate the second gear
                     x2, y2 = rotatePointList(x2, y2, parameters2["angle"] / 2
                         - parameters2["j_t"] / parameters2["r"], (0, 0))
@@ -509,10 +518,13 @@ Close the program and try again.""")
         alpha = kwargs["alpha"]
         m = kwargs["m"]
         backlash = kwargs["backlash"]
+        addendum = kwargs["addendum"]
+        dedendum = kwargs["dedendum"]
         
         try:
             # Calculate the parameters for the gear
-            parameters = calculateParameters(z, alpha, m, backlash)
+            parameters = calculateParameters(z, alpha, m, backlash, addendum,
+                                             dedendum)
 
             # Calculate the points on the gear
             x, y = self.gearPoints(parameters, 0.075)
@@ -706,6 +718,7 @@ class InputFrame(tk.Toplevel):
     def __init__(self, parent, *args, defaults=None, command=None, **kwargs):
         tk.Toplevel.__init__(self, *args, **kwargs)
         self.title("New Gear")
+        self.resizable(False, False)
 
         # Save the parent for later use
         self.master = parent
@@ -717,7 +730,7 @@ class InputFrame(tk.Toplevel):
         self.inputFrame.grid(row=0, column=0)
         self.buttonFrame.grid(row=1, column=0)
 
-        # Create labels and entries for the input parameters
+        # Create labels and entries for the required parameters
         self.label1 = tk.Label(self.inputFrame, text="Number of teeth: ")
         self.label1.grid(row=0, column=0, sticky="e")
         self.entry1 = ttk.Entry(self.inputFrame)
@@ -726,14 +739,27 @@ class InputFrame(tk.Toplevel):
         self.label2.grid(row=1, column=0, sticky="e")
         self.entry2 = ttk.Entry(self.inputFrame)
         self.entry2.grid(row=1, column=1, sticky="w", pady=2)
-        self.label3 = tk.Label(self.inputFrame, text="Module: (mm)")
+        self.label3 = tk.Label(self.inputFrame, text="Module: (mm) ")
         self.label3.grid(row=2, column=0, sticky="e")
         self.entry3 = ttk.Entry(self.inputFrame)
         self.entry3.grid(row=2, column=1, sticky="w", pady=2)
-        self.label4 = tk.Label(self.inputFrame, text="Backlash: (%)")
-        self.label4.grid(row=3, column=0, sticky="e")
+
+        # Add the label to show the advanced parameters
+        self.showAdvanced = False
+        self.advanced = tk.Label(self.inputFrame, text=u"Advanced \u25BC")
+        self.advanced.grid(row=3, column=1, sticky="e")
+        self.advanced.bind("<Button-1>", self.toggleAdvanced)
+
+        # Create labels and entries for the advanced parameters
+        self.label4 = tk.Label(self.inputFrame, text="Backlash: (%) ")
         self.entry4 = ttk.Entry(self.inputFrame)
-        self.entry4.grid(row=3, column=1, sticky="w", pady=2)
+        self.label5 = tk.Label(self.inputFrame, text="Addendum: ")
+        self.entry5 = ttk.Entry(self.inputFrame)
+        self.label6 = tk.Label(self.inputFrame, text="Dedendum: ")
+        self.entry6 = ttk.Entry(self.inputFrame)
+
+        # Update the grid layout
+        self.toggleAdvanced(show=self.showAdvanced)
 
         # Insert default values into the entries if defaults exist
         if defaults != None:
@@ -749,6 +775,12 @@ class InputFrame(tk.Toplevel):
             if "backlash" in defaults.keys():
                 if defaults["backlash"] != None:
                     self.entry4.insert(0, defaults["backlash"])
+            if "addendum" in defaults.keys():
+                if defaults["addendum"] != None:
+                    self.entry5.insert(0, defaults["addendum"])
+            if "dedendum" in defaults.keys():
+                if defaults["dedendum"] != None:
+                    self.entry6.insert(0, defaults["dedendum"])
 
         # Create a button to generate the gear
         self.button = ttk.Button(self.buttonFrame, text="Generate Gear",
@@ -758,6 +790,44 @@ class InputFrame(tk.Toplevel):
         # Bring the frame into focus
         self.focus_force()
 
+    def toggleAdvanced(self, *args, **kwargs):
+        if "show" in kwargs.keys():
+            self.showAdvanced = kwargs["show"]
+        else:
+            self.showAdvanced = not self.showAdvanced
+
+        if self.showAdvanced:
+            # Update the arrow direction
+            self.advanced.config(text=u"Advanced \u25B2")
+            
+            # Add the advanced options to the grid
+            self.label4.grid(row=3, column=0, sticky="e")
+            self.entry4.grid(row=3, column=1, sticky="w", pady=2)
+            self.label5.grid(row=4, column=0, sticky="e")
+            self.entry5.grid(row=4, column=1, sticky="w", pady=2)
+            self.label6.grid(row=5, column=0, sticky="e")
+            self.entry6.grid(row=5, column=1, sticky="w", pady=2)
+
+            # Update the position of the advanced label
+            self.advanced.grid(row=6, column=1, sticky="e")
+        else:
+            # Update the arrow direction
+            self.advanced.config(text=u"Advanced \u25BC")
+
+            # Update the position of the advanced label
+            self.advanced.grid(row=3, column=1, sticky="e")
+            
+            # Try to remove the advanced options to the grid
+            try:
+                self.label4.grid_forget()
+                self.entry4.grid_forget()
+                self.label5.grid_forget()
+                self.entry5.grid_forget()
+                self.label6.grid_forget()
+                self.entry6.grid_forget()
+            except:
+                pass
+
     def generateGear(self, *args, **kwargs):
         try:
             # Read the values from the entries
@@ -765,10 +835,25 @@ class InputFrame(tk.Toplevel):
             alpha = float(self.entry2.get())
             m = float(self.entry3.get())
             backlash = float(self.entry4.get()) / 100
+            addendum = float(self.entry5.get())
+            dedendum = float(self.entry6.get())
+
+            # Check if the teeth are in proportion
+            if addendum > dedendum:
+                messagebox.showerror("Input Error",
+"""Input Error.
+There is an issue with the values you entered.
+The addendum should be smaller than the dedendum.""")
+
+                # Bring the frame into focus
+                self.focus_force()
+
+                return
         
             # Create a gear from the inputed values
             if self.master.generateGear(z=z, alpha=alpha, m=m,
-                                        backlash=backlash):
+                                        backlash=backlash, addendum=addendum,
+                                        dedendum=dedendum):
                 # Close the window if successful
                 self.destroy()
             else:
@@ -784,6 +869,61 @@ Either some are missing or are in the wrong format.""")
             self.focus_force()
         except:
             raise
+
+class ExportFrame(tk.Toplevel):
+    def __init__(self, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+        self.title("Export as Image")
+        self.resizable(False, False)
+
+        # Create a list of the possible sizes
+        sizes = []
+        sizeLabels = []
+        for n in range(8, 17):
+            sizes.append((2**n, 2**n))
+            sizeLabels.append("{}x{}".format(2**n, 2**n))
+
+        # Create a combobox to get the output size
+        self.sizeLabel = tk.Label(self, text="Size (px):")
+        self.sizeLabel.grid(row=0, column=0, sticky="e", pady=2)
+        self.sizeSelecter = ttk.Combobox(self, values=sizeLabels,
+                                         state="readonly")
+        self.sizeSelecter.grid(row=0, column=1, sticky="ew", pady=2)
+        self.sizeSelecter.set(sizeLabels[2])
+
+        # Create an entry to get the linewidth
+        self.linewidthLabel = tk.Label(self, text="Linewidth:")
+        self.linewidthLabel.grid(row=1, column=0, sticky="e", pady=2)
+        self.linewidthEntry = ttk.Entry(self)
+        self.linewidthEntry.grid(row=1, column=1, sticky="ew", pady=2)
+        self.linewidthEntry.insert(0, 1)
+
+        # Create a checkbutton to get the centre cross status
+        self.showCross = tk.BooleanVar()
+        self.showCross.set(True)
+
+        self.crossCheck = ttk.Checkbutton(self, text="Centre cross",
+                                          variable=self.showCross)
+        self.crossCheck.grid(row=2, column=1, sticky="w", pady=2)
+
+        # Create a button to export the image
+        exportButton = ttk.Button(self, text="Export", command=self.export)
+        exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
+
+        # Bring the frame into focus
+        self.focus_force()
+
+    def export(self, *args, **kwargs):
+        # Try to export the gear as a png file
+        width = int(self.sizeSelecter.get().split("x")[0])
+        if self.master.exportImage(linewidth=float(self.linewidthEntry.get()),
+                                   size=(width, width),
+                                   cross=self.showCross.get()):
+            # If the export is successful close the window
+            self.destroy()
+        else:
+            # Bring the frame into focus
+            self.focus_frame()
 
 class ImageViewer(tk.Toplevel):
     def __init__(self, master, fileName, *args, **kwargs):
@@ -913,7 +1053,8 @@ class MenuBar(tk.Menu):
 
     def newGear(self, *args, **kwargs):
         # Ask the user to input the gear parameters
-        InputFrame(self.master, defaults={"alpha": 20, "backlash": 4},
+        InputFrame(self.master, defaults={"alpha": 20, "backlash": 4,
+                                          "addendum": 1, "dedendum": 1.25},
                    padx=7, pady=5)
 
     def openFile(self, *args, multiple=False, **kwargs):
@@ -951,47 +1092,7 @@ class MenuBar(tk.Menu):
         self.openFile(multiple=True)
 
     def exportImage(self, *args, **kwargs):
-        def export(*args, **kwargs):
-            width = int(sizeSelecter.get().split("x")[0])
-            if self.master.exportImage(linewidth=float(linewidthEntry.get()),
-                                       size=(width, width),
-                                       cross=showCross.get()):
-                window.destroy()
-            
-        window = tk.Toplevel(padx=7, pady=5)
-        window.title("Export as Image")
-
-        # Create a list of the possible sizes
-        sizes = []
-        sizeLabels = []
-        for n in range(8, 17):
-            sizes.append((2**n, 2**n))
-            sizeLabels.append("{}x{}".format(2**n, 2**n))
-
-        sizeLabel = tk.Label(window, text="Size (px):")
-        sizeLabel.grid(row=0, column=0, sticky="e", pady=2)
-        sizeSelecter = ttk.Combobox(window, values=sizeLabels, state="readonly")
-        sizeSelecter.grid(row=0, column=1, sticky="ew", pady=2)
-        sizeSelecter.set(sizeLabels[2])
-        
-        linewidthLabel = tk.Label(window, text="Linewidth:")
-        linewidthLabel.grid(row=1, column=0, sticky="e", pady=2)
-        linewidthEntry = ttk.Entry(window)
-        linewidthEntry.grid(row=1, column=1, sticky="ew", pady=2)
-        linewidthEntry.insert(0, 1)
-
-        showCross = tk.BooleanVar()
-        showCross.set(True)
-
-        crossCheck = ttk.Checkbutton(window, text="Centre cross",
-                                    variable=showCross)
-        crossCheck.grid(row=2, column=1, sticky="w", pady=2)
-
-        exportButton = ttk.Button(window, text="Export", command=export)
-        exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
-
-        # Bring the frame into focus
-        window.focus_force()
+        ExportFrame(padx=7, pady=7)
 
     def closeWindow(self, *args, **kwargs):
         self.master.destroy()
