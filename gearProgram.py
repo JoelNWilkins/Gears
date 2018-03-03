@@ -20,7 +20,6 @@ from tkinter import messagebox
 # matplotlib is the module to generate the graphs
 import matplotlib
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
 
 # PIL is used for image manipulation
 from PIL import Image, ImageTk
@@ -64,6 +63,9 @@ class GearGUI(tk.Tk):
         self.showRoot = tk.BooleanVar()
         self.showCentres = tk.BooleanVar()
         self.showAction = tk.BooleanVar()
+        self.showNormal = tk.BooleanVar()
+        self.showCentrePoints = tk.BooleanVar()
+        self.showPitchPoint = tk.BooleanVar()
 
         # Set the values of the variables
         self.showRef.set(True)
@@ -72,6 +74,9 @@ class GearGUI(tk.Tk):
         self.showRoot.set(True)
         self.showCentres.set(True)
         self.showAction.set(True)
+        self.showNormal.set(True)
+        self.showCentrePoints.set(True)
+        self.showPitchPoint.set(True)
 
         # A variable to control the animation state
         self.animationOn = tk.BooleanVar()
@@ -96,6 +101,7 @@ class GearGUI(tk.Tk):
         # Check to see if the window has been resized
         self.animationStatus = None
         self.bind("<Configure>", self.configure)
+        self.canvas.callbacks.connect("scroll_event", self.zoom)
 
     def openFile(self, fileNames, limits=False):
         # Update the file names of the current gear(s)
@@ -166,7 +172,7 @@ class GearGUI(tk.Tk):
                           - parameters2["r"] /
                           (math.tan(math.radians(parameters2["alpha"]))
                            + (1 / math.tan(math.radians(parameters2["alpha"]))))]
-
+                    
                     # Remove the path from the file name and set the title
                     if "\\" in fileNames[0]:
                         self.setTitle("{} and {}".format(
@@ -210,28 +216,51 @@ class GearGUI(tk.Tk):
                                                 centre=(xc[1], yc[1]))
                         lines.append(root1)
                         labels.append("Root Circle")
-                    if self.showAction.get():
-                        lineOfAction, = self.axis.plot(xa, ya, "go-")
-                        lines.append(lineOfAction)
-                        labels.append("Line of Action")
                     if self.showCentres.get():
-                        lineOfCentres, = self.axis.plot(xc, yc, "bo-")
-                        lines.append(lineOfCentres)
+                        self.lineOfCentres = InfiniteLine(self.axis, "b", y=0,
+                                                          connect=False)
+                        lines.append(self.lineOfCentres.line)
                         labels.append("Line of Centres")
+                    if self.showAction.get():
+                        def f(x):
+                            return (- x /
+                                    math.tan(math.radians(parameters1["alpha"])))
+                            
+                        self.lineOfAction = InfiniteLine(self.axis, "g", y=f,
+                                                         connect=False)
+                        lines.append(self.lineOfAction.line)
+                        labels.append("Line of Action")
+                    if self.showNormal.get():
+                        self.normal = InfiniteLine(self.axis, "m", x=0,
+                                                   connect=False)
+                        lines.append(self.normal.line)
+                        labels.append("Normal")
+
+                    if self.showCentrePoints.get():
+                        self.axis.plot(- parameters1["r"], 0, "bo")
+                        self.axis.plot(parameters2["r"], 0, "bo")
+                    if self.showPitchPoint.get():
+                        self.axis.plot(0, 0, "bo")
+
+                    self.axis.callbacks.connect('xlim_changed',
+                                                self.updateLimits)
+                    self.axis.callbacks.connect('ylim_changed',
+                                                self.updateLimits)
 
                     # Plot the points on the gear
                     self.gear1, = self.axis.plot(x1[:], y1[:], "r")
                     self.gear2, = self.axis.plot(x2[:], y2[:], "r")
 
                     # Adjust the number of columns of the legend
-                    if len(lines) > 4 or len(lines) == 3:
+                    if len(lines) > 6:
+                        cols = 4
+                    elif len(lines) > 4 or len(lines) == 3:
                         cols = 3
                     else:
                         cols = 2
 
                     # Update the legend
-                    self.axis.legend(lines, labels,
-                                     loc='upper center',
+                    self.axis.legend(lines, labels, loc='upper center',
                                      bbox_to_anchor=(0.5, -0.075),
                                      fancybox=True, shadow=True, ncol=cols)
 
@@ -324,6 +353,23 @@ Close the program and try again.""")
         except:
             pass
 
+    def updateLimits(self, *args, **kwargs):
+        # Try to update the limits on each of the infinite lines
+        try:
+            self.lineOfAction.update()
+        except:
+            pass
+
+        try:
+            self.lineOfCentres.update()
+        except:
+            pass
+
+        try:
+            self.normal.update()
+        except:
+            pass
+
     def exportImage(self, *args, **kwargs):
         if "linewidth" in kwargs.keys():
             linewidth = kwargs["linewidth"]
@@ -355,23 +401,21 @@ Close the program and try again.""")
 
         # Create the figure to save as an image
         fig = plt.figure(frameon=False, dpi=resolution)
-        fig.set_size_inches(*size_inches, forward=False)
+        fig.set_size_inches(*size_inches, forward=True)
 
         # Create an axes in the figure
         axes = plt.Axes(fig, [0., 0., 1., 1.])
         axes.set_axis_off()
         axes.margins(0, 0)
-        axes.axis("normal")
         fig.add_axes(axes)
 
         # Plot the gear points on the axes
         axes.plot(x, y, "k", linewidth=linewidth)
 
         # Plot invisible points to fix the boundries
-        axes.plot(0, -parameters["r_a"], alpha=1, markersize=0.25)
-        axes.plot(0, parameters["r_a"], alpha=1, markersize=0.25)
-        axes.plot(-parameters["r_a"], 0, alpha=1, markersize=0.25)
-        axes.plot(parameters["r_a"], 0, alpha=1, markersize=0.25)
+        axes.plot([0, 0, -parameters["r_a"], parameters["r_a"]],
+                  [-parameters["r_a"], parameters["r_a"], 0, 0],
+                  "k", linewidth=linewidth, alpha=0)
 
         if parameters["r_f"] < parameters["r_b"]:
             R = parameters["r_f"]
@@ -410,7 +454,7 @@ Close the program and try again.""")
             image.convert("RGB").save(fileName, "JPEG")
         else:
             # Save the figure as a png
-            fig.savefig(fileName, transparent=True)
+            fig.savefig(fileName, bbox_inches=0, transparent=True)
 
         imageViewer = ImageViewer(self, fileName)
 
@@ -472,13 +516,36 @@ Close the program and try again.""")
     def configure(self, event):
         if (event.width == self.winfo_width()
             and event.height == self.winfo_height()):
+            # Record the status of the animation (on / off)
             if self.animationStatus == None:
                 self.animationStatus = self.animationOn.get()
             self.animationOn.set(False)
 
             self.updateGraph(limits=True)
 
+            # Restart the animation
             self.after(500, self.restartAnimation)
+
+    def zoom(self, event):
+        xlim = self.axis.get_xlim()
+        ylim = self.axis.get_ylim()
+        xpos = (xlim[0] + xlim[1]) / 2
+        ypos = (ylim[0] + ylim[1]) / 2
+        xrange = (xlim[1] - xlim[0]) / 2
+        yrange = (ylim[1] - ylim[0]) / 2
+
+        # Adjust the scale factor based on the scroll direction
+        if event.button == "up":
+            scale = 9 / 10
+        elif event.button == "down":
+            scale = 10 / 9
+
+        # Update the zoom limits
+        self.axis.set_xlim([xpos - xrange * scale, xpos + xrange * scale])
+        self.axis.set_ylim([ypos - yrange * scale, ypos + yrange * scale])
+
+        # Redraw the canvas
+        self.canvas.draw()
 
     def setTitle(self, text):
         # Change the title of the window
@@ -715,7 +782,7 @@ The gear cannot be saved because the file is already open in another program."""
         return (x, y)
 
 class InputFrame(tk.Toplevel):
-    def __init__(self, parent, *args, defaults=None, command=None, **kwargs):
+    def __init__(self, parent, *args, defaults=None, **kwargs):
         tk.Toplevel.__init__(self, *args, **kwargs)
         self.title("New Gear")
         self.resizable(False, False)
@@ -870,7 +937,7 @@ Either some are missing or are in the wrong format.""")
         except:
             raise
 
-class ExportFrame(tk.Toplevel):
+class ExportImageFrame(tk.Toplevel):
     def __init__(self, *args, **kwargs):
         tk.Toplevel.__init__(self, *args, **kwargs)
         self.title("Export as Image")
@@ -884,7 +951,7 @@ class ExportFrame(tk.Toplevel):
             sizeLabels.append("{}x{}".format(2**n, 2**n))
 
         # Create a combobox to get the output size
-        self.sizeLabel = tk.Label(self, text="Size (px):")
+        self.sizeLabel = tk.Label(self, text="Size: (px) ")
         self.sizeLabel.grid(row=0, column=0, sticky="e", pady=2)
         self.sizeSelecter = ttk.Combobox(self, values=sizeLabels,
                                          state="readonly")
@@ -892,7 +959,7 @@ class ExportFrame(tk.Toplevel):
         self.sizeSelecter.set(sizeLabels[2])
 
         # Create an entry to get the linewidth
-        self.linewidthLabel = tk.Label(self, text="Linewidth:")
+        self.linewidthLabel = tk.Label(self, text="Linewidth: ")
         self.linewidthLabel.grid(row=1, column=0, sticky="e", pady=2)
         self.linewidthEntry = ttk.Entry(self)
         self.linewidthEntry.grid(row=1, column=1, sticky="ew", pady=2)
@@ -924,6 +991,87 @@ class ExportFrame(tk.Toplevel):
         else:
             # Bring the frame into focus
             self.focus_frame()
+
+class ExportDXFFrame(tk.Toplevel):
+    def __init__(self, *args, defaults=None, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+        self.title("Export as DXF")
+        self.resizable(False, False)
+
+        # Create frames to organise the widgets
+        self.inputFrame = tk.Frame(self)
+        self.buttonFrame = tk.Frame(self)
+        # Set the positions of the frames
+        self.inputFrame.grid(row=0, column=0)
+        self.buttonFrame.grid(row=1, column=0)
+
+        # Create an entry to get the facewidth
+        self.faceWidthLabel = tk.Label(self.inputFrame,
+                                       text="Face Width: (mm) ")
+        self.faceWidthLabel.grid(row=0, column=0, sticky="w", pady=2)
+        self.faceWidthEntry = ttk.Entry(self.inputFrame)
+        self.faceWidthEntry.grid(row=0, column=1, sticky="ew", pady=2)
+
+        # Add the label to show the advanced parameters
+        self.showAdvanced = False
+        self.advanced = tk.Label(self.inputFrame, text=u"Advanced \u25BC")
+        self.advanced.grid(row=1, column=1, sticky="e")
+        self.advanced.bind("<Button-1>", self.toggleAdvanced)
+
+        # Create an entry to get the helix angle
+        self.helixAngleLabel = tk.Label(self.inputFrame,
+                                        text="Helix Angle: (°) ")
+        self.helixAngleEntry = tk.Entry(self.inputFrame)
+
+        # Insert default values into the entries if defaults exist
+        if defaults != None:
+            if "width" in defaults.keys():
+                if defaults["width"] != None:
+                    self.faceWidthEntry.insert(0, defaults["width"])
+            if "beta" in defaults.keys():
+                if defaults["beta"] != None:
+                    self.helixAngleEntry.insert(0, defaults["beta"])
+        
+        # Create a button to export the image
+        exportButton = ttk.Button(self.buttonFrame, text="Export",
+                                  command=self.export)
+        exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
+
+        # Bring the frame into focus
+        self.focus_force()
+
+    def export(self, *args, **kwargs):
+        pass
+
+    def toggleAdvanced(self, *args, **kwargs):
+        if "show" in kwargs.keys():
+            self.showAdvanced = kwargs["show"]
+        else:
+            self.showAdvanced = not self.showAdvanced
+
+        if self.showAdvanced:
+            # Update the arrow direction
+            self.advanced.config(text=u"Advanced \u25B2")
+            
+            # Add the advanced options to the grid
+            self.helixAngleLabel.grid(row=1, column=0, sticky="e", pady=2)
+            self.helixAngleEntry.grid(row=1, column=1, sticky="ew", pady=2)
+
+            # Update the position of the advanced label
+            self.advanced.grid(row=2, column=1, sticky="e")
+        else:
+            # Update the arrow direction
+            self.advanced.config(text=u"Advanced \u25BC")
+
+            # Update the position of the advanced label
+            self.advanced.grid(row=1, column=1, sticky="e")
+            
+            # Try to remove the advanced options to the grid
+            try:
+                self.helixAngleLabel.grid_forget()
+                self.helixAngleEntry.grid_forget()
+            except:
+                pass
 
 class ImageViewer(tk.Toplevel):
     def __init__(self, master, fileName, *args, **kwargs):
@@ -989,6 +1137,8 @@ class MenuBar(tk.Menu):
         # Add the button for each export type
         self.exportMenu.add_command(label="Export as Image",
                                     command=self.exportImage)
+        self.exportMenu.add_command(label="Export as DXF",
+                                    command=self.exportDXF)
 
         # Create the file menu
         # Create a sub-menu to go on the menubar
@@ -1030,12 +1180,25 @@ class MenuBar(tk.Menu):
         self.linesMenu.add_checkbutton(label="Line of Action",
                                        command=self.updateGraph,
                                        variable=self.master.showAction)
+        self.linesMenu.add_checkbutton(label="Normal", command=self.updateGraph,
+                                       variable=self.master.showNormal)
+
+        # Create the points menu
+        self.pointsMenu = tk.Menu(self, tearoff=False)
+        # Bind the points checkbuttons to the menu
+        self.pointsMenu.add_checkbutton(label="Centre Points",
+                                        command=self.updateGraph,
+                                        variable=self.master.showCentrePoints)
+        self.pointsMenu.add_checkbutton(label="Pitch Point",
+                                        command=self.updateGraph,
+                                        variable=self.master.showPitchPoint)
 
         # Create the options menu
         # Create a sub-menu to go on the menubar
         self.optionsMenu = tk.Menu(self, tearoff=False)
         # Bind the options to the menu
         self.optionsMenu.add_cascade(label="Lines", menu=self.linesMenu)
+        self.optionsMenu.add_cascade(label="Points", menu=self.pointsMenu)
         self.optionsMenu.add_checkbutton(label="Animation",
                                          command=self.updateAnimation,
                                          variable=self.master.animationOn,
@@ -1092,7 +1255,10 @@ class MenuBar(tk.Menu):
         self.openFile(multiple=True)
 
     def exportImage(self, *args, **kwargs):
-        ExportFrame(padx=7, pady=7)
+        ExportImageFrame(padx=7, pady=5)
+
+    def exportDXF(self, *args, **kwargs):
+        ExportDXFFrame(padx=7, pady=5, defaults={"beta": 0})
 
     def closeWindow(self, *args, **kwargs):
         self.master.destroy()

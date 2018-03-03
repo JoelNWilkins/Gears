@@ -8,6 +8,9 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2TkAgg)
 from matplotlib.figure import Figure
 
+# numpy is used for some mathematical tools
+import numpy as np
+
 # Configure matplotlib to use the tkinter backend
 matplotlib.use("TkAgg")
 
@@ -44,8 +47,111 @@ class Graph(tk.Frame):
         # Return the toolbar object
         return self.__toolbar
 
+class InfiniteLine(object):
+    def __init__(self, *args, **kwargs):
+        self.axis = args[0]
+        args = args[1:]
+
+        # Turn off autoscale
+        self.axis.set_autoscale_on(False)
+
+        if "connect" in kwargs.keys():
+            connect = kwargs.pop("connect", None)
+        else:
+            connect = True
+
+        # Bind the event of changing the limits to updating the graph
+        if connect:
+            self.axis.callbacks.connect('xlim_changed', self.update)
+            self.axis.callbacks.connect('ylim_changed', self.update)
+
+        # Reference the functions of the line
+        if "x" in kwargs.keys():
+            if type(kwargs["x"]) != int:
+                self.xFunc = kwargs.pop("x", None)
+            else:
+                self.xFunc = False
+                self.xValue = kwargs.pop("x", None)
+        else:
+            self.xFunc = None
+        if "y" in kwargs.keys():
+            if type(kwargs["y"]) != int:
+                self.yFunc = kwargs.pop("y", None)
+            else:
+                self.yFunc = False
+                self.yValue = kwargs.pop("y", None)
+        else:
+            self.yFunc = None
+
+        # Create a default line to plot to
+        self.line, = self.axis.plot(0, 0, *args, **kwargs)
+        self.update()
+
+        self = self.line
+
+    def update(self, *args, **kwargs):
+        if self.xFunc == None and self.yFunc != None and self.yFunc != False:
+            # Calculate the x values
+            limits = self.axis.get_xlim()
+            x = list(np.arange(start=limits[0], stop=limits[1],
+                               step=abs(limits[1] - limits[0]) / 100))
+            x.append(limits[1])
+
+            # Calculate the y values
+            y = []
+            for i in range(len(x)):
+                y.append(self.yFunc(x[i]))
+        elif self.xFunc != None and self.yFunc == None and self.xFunc != False:
+            # Calculate the y values
+            limits = self.axis.get_ylim()
+            y = list(np.arange(start=limits[0], stop=limits[1],
+                               step=abs(limits[1] - limits[0]) / 100))
+            y.append(limits[1])
+
+            # Calculate the x values
+            x = []
+            for i in range(len(y)):
+                x.append(self.yFunc(y[i]))
+        elif self.xFunc == False:
+            # Calculate the y values
+            limits = self.axis.get_ylim()
+            y = list(np.arange(start=limits[0], stop=limits[1],
+                               step=abs(limits[1] - limits[0]) / 100))
+            y.append(limits[1])
+
+            # Calculate the x values
+            x = []
+            for i in range(len(y)):
+                x.append(self.xValue)
+        elif self.yFunc == False:
+            # Calculate the x values
+            limits = self.axis.get_xlim()
+            x = list(np.arange(start=limits[0], stop=limits[1],
+                               step=abs(limits[1] - limits[0]) / 100))
+            x.append(limits[1])
+
+            # Calculate the y values
+            y = []
+            for i in range(len(x)):
+                y.append(self.yValue)
+
+        # Update the points on the line
+        self.line.set_xdata(x)
+        self.line.set_ydata(y)
+
+        return self.line
+
 # Create a test graph
 if __name__ == "__main__":
+    def f(x):
+        return x
+    
+    def g(x):
+        return x**2
+
+    def h(x):
+        return x**3
+    
     root = tk.Tk()
     root.title("Graph")
 
@@ -60,33 +166,11 @@ if __name__ == "__main__":
     axis = fig.add_subplot(111)
     axis.set_title("Test Graph")
 
-    x1 = []
-    y1 = []
+    linear = InfiniteLine(axis, "r", y=f)
+    quadratic = InfiniteLine(axis, "g", y=g)
+    cubic = InfiniteLine(axis, "b", y=h)
 
-    x2 = []
-    y2 = []
-
-    x3 = []
-    y3 = []
-
-    n = 0
-    while n <= 2:
-        x1.append(n)
-        y1.append(n)
-
-        x2.append(n)
-        y2.append(n**2)
-
-        x3.append(n)
-        y3.append(n**3)
-
-        n += 0.01
-
-    linear, = axis.plot(x1, y1, "r")
-    quadratic, = axis.plot(x2, y2, "b")
-    cubic, = axis.plot(x3, y3, "g")
-
-    axis.legend([linear, quadratic, cubic],
+    axis.legend([linear.line, quadratic.line, cubic.line],
                 ["Linear", "Quadratic", "Cubic"])
 
     root.mainloop()
