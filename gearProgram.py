@@ -16,6 +16,7 @@ from tkinter import ttk
 from tkinter.filedialog import (askopenfilename, askopenfilenames,
                                 asksaveasfilename)
 from tkinter import messagebox
+from tkinter.colorchooser  import askcolor
 
 # matplotlib is the module to generate the graphs
 import matplotlib
@@ -66,6 +67,7 @@ class GearGUI(tk.Tk):
         self.showNormal = tk.BooleanVar()
         self.showCentrePoints = tk.BooleanVar()
         self.showPitchPoint = tk.BooleanVar()
+        self.showActionPoints = tk.BooleanVar()
 
         # Set the values of the variables
         self.showRef.set(True)
@@ -77,6 +79,7 @@ class GearGUI(tk.Tk):
         self.showNormal.set(True)
         self.showCentrePoints.set(True)
         self.showPitchPoint.set(True)
+        self.showActionPoints.set(True)
 
         # A variable to control the animation state
         self.animationOn = tk.BooleanVar()
@@ -155,23 +158,35 @@ class GearGUI(tk.Tk):
                     xc = [-parameters1["r"], parameters2["r"], 0]
                     yc = [0, 0, 0]
 
-                    # Add the points on the line of action
-                    xa = [(- parameters1["r"]
-                          * math.tan(math.radians(parameters1["alpha"])))
-                          / (math.tan(math.radians(parameters1["alpha"]))
-                          + (1 / math.tan(math.radians(parameters1["alpha"])))),
-                          0,
-                          (parameters2["r"]
-                          * math.tan(math.radians(parameters2["alpha"])))
-                          / (math.tan(math.radians(parameters2["alpha"]))
-                          + (1 / math.tan(math.radians(parameters2["alpha"]))))]
-                    ya = [parameters1["r"] /
-                          (math.tan(math.radians(parameters1["alpha"]))
-                           + (1 / math.tan(math.radians(parameters1["alpha"])))),
-                          0,
-                          - parameters2["r"] /
-                          (math.tan(math.radians(parameters2["alpha"]))
-                           + (1 / math.tan(math.radians(parameters2["alpha"]))))]
+                    # Calculate the points on the line of action
+                    xa = []
+                    ya = []
+
+                    angle = ((math.pi / 2) - math.radians(parameters2["alpha"])
+                             - math.asin(parameters2["r"]
+                             * math.sin(math.radians(parameters2["alpha"])
+                             + math.pi / 2) / parameters2["r_a"]))
+                    l = math.sqrt(parameters2["r_a"]**2 + parameters2["r"]**2
+                                  - 2 * parameters2["r_a"] * parameters2["r"]
+                                  * math.cos(angle))
+
+                    xa.append(l * math.cos(math.radians(parameters1["alpha"])
+                                           + math.pi / 2))
+                    ya.append(l * math.sin(math.radians(parameters1["alpha"])
+                                           + math.pi / 2))
+
+                    angle = ((math.pi / 2) - math.radians(parameters1["alpha"])
+                             - math.asin(parameters1["r"]
+                             * math.sin(math.radians(parameters1["alpha"])
+                             + math.pi / 2) / parameters1["r_a"]))
+                    l = math.sqrt(parameters1["r_a"]**2 + parameters1["r"]**2
+                                  - 2 * parameters1["r_a"] * parameters1["r"]
+                                  * math.cos(angle))
+
+                    xa.append(l * math.cos(math.radians(parameters2["alpha"])
+                                           - math.pi / 2))
+                    ya.append(l * math.sin(math.radians(parameters2["alpha"])
+                                           - math.pi / 2))
                     
                     # Remove the path from the file name and set the title
                     if "\\" in fileNames[0]:
@@ -241,6 +256,8 @@ class GearGUI(tk.Tk):
                         self.axis.plot(parameters2["r"], 0, "bo")
                     if self.showPitchPoint.get():
                         self.axis.plot(0, 0, "bo")
+                    if self.showActionPoints.get():
+                        self.axis.plot(xa, ya, "go")
 
                     self.axis.callbacks.connect('xlim_changed',
                                                 self.updateLimits)
@@ -443,22 +460,25 @@ Close the program and try again.""")
                                                 ("JPEG image", "*.jpg")],
                                      defaultextension=".png")
 
-        if ".jpg" in fileName:
-            # Save the image in a buffer
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png")
-            buf.seek(0)
+        if fileName != "":
+            if ".jpg" in fileName:
+                # Save the image in a buffer
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png")
+                buf.seek(0)
 
-            # Open the image using PIL and convert to a jpg
-            image = Image.open(buf)
-            image.convert("RGB").save(fileName, "JPEG")
+                # Open the image using PIL and convert to a jpg
+                image = Image.open(buf)
+                image.convert("RGB").save(fileName, "JPEG")
+            else:
+                # Save the figure as a png
+                fig.savefig(fileName, bbox_inches=0, transparent=True)
+
+            imageViewer = ImageViewer(self, fileName)
+
+            return True
         else:
-            # Save the figure as a png
-            fig.savefig(fileName, bbox_inches=0, transparent=True)
-
-        imageViewer = ImageViewer(self, fileName)
-
-        return True
+            return False
 
     def animate(self, *args, **kwargs):
         if self.animationOn.get():
@@ -854,6 +874,9 @@ class InputFrame(tk.Toplevel):
                                  command=self.generateGear)
         self.button.pack(pady=2)
 
+        # Bind the escape key to close the window
+        self.bind("<Escape>", self.closeWindow)
+
         # Bring the frame into focus
         self.focus_force()
 
@@ -937,6 +960,9 @@ Either some are missing or are in the wrong format.""")
         except:
             raise
 
+    def closeWindow(self, *args, **kwargs):
+        self.destroy()
+
 class ExportImageFrame(tk.Toplevel):
     def __init__(self, *args, **kwargs):
         tk.Toplevel.__init__(self, *args, **kwargs)
@@ -977,6 +1003,9 @@ class ExportImageFrame(tk.Toplevel):
         exportButton = ttk.Button(self, text="Export", command=self.export)
         exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
+        # Bind the escape key to close the window
+        self.bind("<Escape>", self.closeWindow)
+
         # Bring the frame into focus
         self.focus_force()
 
@@ -990,7 +1019,10 @@ class ExportImageFrame(tk.Toplevel):
             self.destroy()
         else:
             # Bring the frame into focus
-            self.focus_frame()
+            self.focus_force()
+
+    def closeWindow(self, *args, **kwargs):
+        self.destroy()
 
 class ExportDXFFrame(tk.Toplevel):
     def __init__(self, *args, defaults=None, **kwargs):
@@ -1037,6 +1069,9 @@ class ExportDXFFrame(tk.Toplevel):
                                   command=self.export)
         exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
+        # Bind the escape key to close the window
+        self.bind("<Escape>", self.closeWindow)
+
         # Bring the frame into focus
         self.focus_force()
 
@@ -1072,6 +1107,9 @@ class ExportDXFFrame(tk.Toplevel):
                 self.helixAngleEntry.grid_forget()
             except:
                 pass
+
+    def closeWindow(self, *args, **kwargs):
+        self.destroy()
 
 class ImageViewer(tk.Toplevel):
     def __init__(self, master, fileName, *args, **kwargs):
@@ -1126,6 +1164,36 @@ class ImageViewer(tk.Toplevel):
         self.panel.config(image=photo)
         self.panel.image = photo
 
+class FormatFrame(tk.Toplevel):  
+    def __init__(self, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+        self.title("Format")
+        self.resizable(False, False)
+
+        self.gearColourLabel = tk.Label(self, text="Gear Colour: ")
+        self.gearColourLabel.grid(row=0, column=0, sticky="e", pady=2)
+        self.gearColour = tk.Button(self, background="red")
+        self.gearColour.grid(row=0, column=1, pady=2)
+        self.gearColour.grid_propagate(False)
+        self.gearColour.config(width=self.gearColour.winfo_height())
+        self.gearColour.bind("<Button-1>", self.getColour)
+
+    def getColour(self, *args, **kwargs):
+        colour = askcolor(parent=self)
+        self.gearColour.config(background=colour[1])
+        self.focus_force()
+
+class LineSelector(tk.Frame):
+    styles = ["solid", "dashed", "dotted", "dashdot"]
+    
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+
+        self.styleLabel = tk.Label(self, text="Line Style: ")
+        self.styleLabel.grid(row=0, column=0, sticky="e")
+        self.styleCombo = ttk.Combobox(self, values=self.styles)
+        self.styleCombo.grid(row=0, column=1, sticky="ew")
+
 class MenuBar(tk.Menu):
     def __init__(self, parent, *args, **kwargs):
         # Create the menubar and bind it to the parent window
@@ -1158,6 +1226,9 @@ class MenuBar(tk.Menu):
                                   accelerator="Alt+F4")
         # Add the sub-menu to the menubar
         self.add_cascade(label="File", menu=self.fileMenu)
+
+        # Create the format menu
+        self.add_command(label="Format", command=self.format)
 
         # Create the lines menu
         self.linesMenu = tk.Menu(self, tearoff=False)
@@ -1192,6 +1263,9 @@ class MenuBar(tk.Menu):
         self.pointsMenu.add_checkbutton(label="Pitch Point",
                                         command=self.updateGraph,
                                         variable=self.master.showPitchPoint)
+        self.pointsMenu.add_checkbutton(label="Action Points",
+                                        command=self.updateGraph,
+                                        variable=self.master.showActionPoints)
 
         # Create the options menu
         # Create a sub-menu to go on the menubar
@@ -1262,6 +1336,9 @@ class MenuBar(tk.Menu):
 
     def closeWindow(self, *args, **kwargs):
         self.master.destroy()
+
+    def format(self, *args, **kwargs):
+        FormatFrame()
 
     def updateGraph(self, *args, **kwargs):
         self.master.updateGraph()
