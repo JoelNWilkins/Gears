@@ -1,72 +1,53 @@
 # Import required modules
 
-# math is the module to use trigonometric functions etc.
-import math
+# numpy is used for numpyematical functions
+import numpy
 # xlrd and xlwt are the excel workbook reader and writer modules
 import xlrd
 import xlwt
 # os is required to find the files in the data directory etc.
 import os
 
-def frange(start, end, step):
-    # A function to return a list of float values
-    # between 2 points with a certain step
-
-    # If start is smaller than end the values will be ascending
-    if start < end:
-        values = []
-        total = start
-        while total < end:
-            values.append(total)
-            total += step
-        values.append(end)
-        return values
-
-    # If start is greater than end the values will be descending
-    elif start > end:
-        values = []
-        total = start
-        while total > end:
-            values.append(total)
-            total -= step
-        values.append(end)
-        return values
-
 def involute(alpha):
-    # This function generates the curve for the tooth
-    return math.tan(alpha) - alpha
+    if alpha != None:
+        # This function generates the curve for the tooth
+        return numpy.tan(alpha) - alpha
+    else:
+        return 0
 
 def getAlpha(r_b, r):
-    # This finds the angle to input into the involute function
-    return math.acos(r_b / r)
+    if r_b < r:
+        # This finds the angle to input into the involute function
+        return numpy.arccos(r_b / r)
+    return None
 
 def getR(r_b, alpha):
     # This is a rearranged version of getAlpha
-    return r_b / math.cos(alpha)
+    return r_b / numpy.cos(alpha)
 
 def getDistance(point1, point2):
     # This uses pythagoras' theorem to find the distance between 2 points
-    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)    
+    return numpy.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)    
 
 def getDeltaTheta(r, s):
     # This finds the angle between points on the curve
-    return math.acos((2 * r**2 - s**2) / (2 * r**2))
+    return numpy.arccos((2 * r**2 - s**2) / (2 * r**2))
 
 def getCartesian(r, theta):
     # Converts polar coordinates to cartesian coordinates
-    x = r * math.cos(theta)
-    y = r * math.sin(theta)
+    x = r * numpy.cos(theta)
+    y = r * numpy.sin(theta)
     return (x, y)
 
 def getPolar(x, y):
     # Converts cartesian coordinates to polar coordinates
-    r = math.sqrt(x**2 + y**2)
-    theta = math.atan(y / x)
+    r = numpy.sqrt(x**2 + y**2)
+    theta = numpy.arctan(y / x)
 
     if x < 0:
-        theta += math.pi
+        theta += numpy.pi
     if x > 0 and y < 0:
-        theta += 2 * math.pi
+        theta += 2 * numpy.pi
     
     return (r, theta)
 
@@ -75,8 +56,8 @@ def convertPolar(x, y):
     a = []
     b = []
     for i in range(len(x)):
-        a.append(math.sqrt(x[i]**2 + y[i]**2))
-        b.append(math.atan(y[i] / x[i]))
+        a.append(numpy.sqrt(x[i]**2 + y[i]**2))
+        b.append(numpy.arctan(y[i] / x[i]))
     return (a, b)
 
 def points(r, alpha):
@@ -89,10 +70,10 @@ def points(r, alpha):
 
 def rotate(point, theta, centre):
     # This can be used to rotate a point about a centre
-    x = ((point[0] - centre[0]) * math.cos(theta)
-         - (point[1] - centre[1]) * math.sin(theta) + centre[0])
-    y = ((point[0] - centre[0]) * math.sin(theta)
-         + (point[1] - centre[1]) * math.cos(theta) + centre[1])
+    x = ((point[0] - centre[0]) * numpy.cos(theta)
+         - (point[1] - centre[1]) * numpy.sin(theta) + centre[0])
+    y = ((point[0] - centre[0]) * numpy.sin(theta)
+         + (point[1] - centre[1]) * numpy.cos(theta) + centre[1])
     return (x, y)
 
 def rotatePoints(points, theta, centre):
@@ -119,7 +100,7 @@ def circlePoints(r, step):
     # This function will return a list of points for a circle of radius r
     x = []
     y = []
-    for theta in frange(0, 2 * math.pi, getDeltaTheta(r, step)):
+    for theta in numpy.arange(0, 2 * numpy.pi, getDeltaTheta(r, step)):
         point = getCartesian(r, theta)
         x.append(point[0])
         y.append(point[1])
@@ -130,7 +111,7 @@ def calculateParameters(z, alpha, m, backlash, addendum, dedendum):
     d = m * z
     r = d / 2
     # Calculate the base diameter and radius
-    d_b = d * math.cos(math.radians(alpha))
+    d_b = d * numpy.cos(numpy.radians(alpha))
     r_b = d_b / 2
     # Calculate the height of the addendum and dedendum
     h_a = addendum * m
@@ -148,13 +129,13 @@ def calculateParameters(z, alpha, m, backlash, addendum, dedendum):
     d_f = d - 2 * h_f
     r_f = d_f / 2
     # Calculate the pitch
-    p = math.pi * m
+    p = numpy.pi * m
     # Calculate the backlash, should be between 3-5%
     j_t = backlash * p
     # Calculate the tooth thickness
     s = (p / 2) - j_t
     # Calculate the angle for one tooth
-    angle = 2 * math.pi / z
+    angle = 2 * numpy.pi / z
 
     # Create a dictionary of the parameters
     parameters = {"z": z, "alpha": alpha, "m": m, "d": d, "r": r, "d_b": d_b,

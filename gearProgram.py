@@ -1,7 +1,7 @@
 # Import required modules
 
 # This imports the core functions for working with gears
-# We do not have to import math etc. as this is done in gearCore
+# We do not have to import numpy etc. as this is done in gearCore
 from gearCore import *
 
 # Import the frame containing a matplotlib graph
@@ -16,11 +16,12 @@ from tkinter import ttk
 from tkinter.filedialog import (askopenfilename, askopenfilenames,
                                 asksaveasfilename)
 from tkinter import messagebox
-from tkinter.colorchooser  import askcolor
+from tkinter.colorchooser import askcolor
 
 # matplotlib is the module to generate the graphs
 import matplotlib
 from matplotlib import pyplot as plt
+from matplotlib import animation
 
 # PIL is used for image manipulation
 from PIL import Image, ImageTk
@@ -28,9 +29,11 @@ import io
 
 # sys is used to get the arguments from the command line
 import sys
+import math
 
 # Change the default directory for saving figures
 matplotlib.rcParams["savefig.directory"] = os.getcwd() + "\\images"
+#matplotlib.rcParams["animation.ffmpeg_path"] = "C:\\Users\\Joel\\AppData\\Local\\ffmpeg\\bin\\ffmpeg.exe"
 
 class GearGUI(tk.Tk):
     def __init__(self, *args, fileNames=None, **kwargs):
@@ -83,7 +86,8 @@ class GearGUI(tk.Tk):
 
         # A variable to control the animation state
         self.animationOn = tk.BooleanVar()
-        self.animationOn.set(True)
+        self.animationOn.set(False)
+        self.animationStatus = None
 
         # Add the menubar
         self.menubar = MenuBar(self)
@@ -102,11 +106,15 @@ class GearGUI(tk.Tk):
             self.openFile(self.fileNames)
 
         # Check to see if the window has been resized
-        self.animationStatus = None
         self.bind("<Configure>", self.configure)
         self.canvas.callbacks.connect("scroll_event", self.zoom)
 
     def openFile(self, fileNames, limits=False):
+        # Record the status of the animation (on / off)
+        if self.animationStatus == None:
+            self.animationStatus = self.animationOn.get()
+        self.animationOn.set(False)
+            
         # Update the file names of the current gear(s)
         self.fileNames = fileNames
 
@@ -127,6 +135,11 @@ class GearGUI(tk.Tk):
                     # Convert the points to a list of x and y values
                     x1, y1 = zip(*points1)
                     x2, y2 = zip(*points2)
+
+                    x1 = numpy.asarray(x1)
+                    y1 = numpy.asarray(y1)
+                    x2 = numpy.asarray(x2)
+                    y2 = numpy.asarray(y2)
 
                     # Check if the gear has backlash
                     if not "j_t" in parameters2.keys():
@@ -162,31 +175,34 @@ class GearGUI(tk.Tk):
                     xa = []
                     ya = []
 
-                    angle = ((math.pi / 2) - math.radians(parameters2["alpha"])
-                             - math.asin(parameters2["r"]
-                             * math.sin(math.radians(parameters2["alpha"])
-                             + math.pi / 2) / parameters2["r_a"]))
-                    l = math.sqrt(parameters2["r_a"]**2 + parameters2["r"]**2
+                    angle = ((numpy.pi / 2) - numpy.radians(parameters2["alpha"])
+                             - numpy.arcsin(parameters2["r"]
+                             * numpy.sin(numpy.radians(parameters2["alpha"])
+                             + numpy.pi / 2) / parameters2["r_a"]))
+                    l = numpy.sqrt(parameters2["r_a"]**2 + parameters2["r"]**2
                                   - 2 * parameters2["r_a"] * parameters2["r"]
-                                  * math.cos(angle))
+                                  * numpy.cos(angle))
 
-                    xa.append(l * math.cos(math.radians(parameters1["alpha"])
-                                           + math.pi / 2))
-                    ya.append(l * math.sin(math.radians(parameters1["alpha"])
-                                           + math.pi / 2))
+                    xa.append(l * numpy.cos(numpy.radians(parameters1["alpha"])
+                                           + numpy.pi / 2))
+                    ya.append(l * numpy.sin(numpy.radians(parameters1["alpha"])
+                                           + numpy.pi / 2))
 
-                    angle = ((math.pi / 2) - math.radians(parameters1["alpha"])
-                             - math.asin(parameters1["r"]
-                             * math.sin(math.radians(parameters1["alpha"])
-                             + math.pi / 2) / parameters1["r_a"]))
-                    l = math.sqrt(parameters1["r_a"]**2 + parameters1["r"]**2
+                    angle = ((numpy.pi / 2) - numpy.radians(parameters1["alpha"])
+                             - numpy.arcsin(parameters1["r"]
+                             * numpy.sin(numpy.radians(parameters1["alpha"])
+                             + numpy.pi / 2) / parameters1["r_a"]))
+                    l = numpy.sqrt(parameters1["r_a"]**2 + parameters1["r"]**2
                                   - 2 * parameters1["r_a"] * parameters1["r"]
-                                  * math.cos(angle))
+                                  * numpy.cos(angle))
 
-                    xa.append(l * math.cos(math.radians(parameters2["alpha"])
-                                           - math.pi / 2))
-                    ya.append(l * math.sin(math.radians(parameters2["alpha"])
-                                           - math.pi / 2))
+                    xa.append(l * numpy.cos(numpy.radians(parameters2["alpha"])
+                                           - numpy.pi / 2))
+                    ya.append(l * numpy.sin(numpy.radians(parameters2["alpha"])
+                                           - numpy.pi / 2))
+
+                    self.xa = xa
+                    self.ya = ya
                     
                     # Remove the path from the file name and set the title
                     if "\\" in fileNames[0]:
@@ -199,65 +215,78 @@ class GearGUI(tk.Tk):
                             fileNames[1].split("/")[-1].split(".")[0]))
 
                     # Lines and labels to be passed to the legend
-                    lines = []
+                    self.lines = []
+                    self.points = []
                     labels = []
 
                     # Add the circles to the graph
                     if self.showRef.get():
-                        ref1, = self.addCircle(parameters1["r"], style="b:",
-                                               centre=(xc[0], yc[0]))
-                        ref2, = self.addCircle(parameters2["r"], style="b:",
-                                               centre=(xc[1], yc[1]))
-                        lines.append(ref1)
+                        self.ref1, = self.addCircle(parameters1["r"],
+                                                    style="b:",
+                                                    centre=(xc[0], yc[0]))
+                        self.ref2, = self.addCircle(parameters2["r"],
+                                                    style="b:",
+                                                    centre=(xc[1], yc[1]))
+                        self.lines.append(self.ref1)
                         labels.append("Reference Circle")
                     if self.showBase.get():
-                        base1, = self.addCircle(parameters1["r_b"], style="g:",
-                                                centre=(xc[0], yc[0]))
-                        base2, = self.addCircle(parameters2["r_b"], style="g:",
-                                                centre=(xc[1], yc[1]))
-                        lines.append(base1)
+                        self.base1, = self.addCircle(parameters1["r_b"],
+                                                     style="g:",
+                                                     centre=(xc[0], yc[0]))
+                        self.base2, = self.addCircle(parameters2["r_b"],
+                                                     style="g:",
+                                                     centre=(xc[1], yc[1]))
+                        self.lines.append(self.base1)
                         labels.append("Base Circle")
                     if self.showTip.get():
-                        tip1, = self.addCircle(parameters1["r_a"], style="m:",
-                                               centre=(xc[0], yc[0]))
-                        tip2, = self.addCircle(parameters2["r_a"], style="m:",
-                                               centre=(xc[1], yc[1]))
-                        lines.append(tip1)
+                        self.tip1, = self.addCircle(parameters1["r_a"],
+                                                    style="m:",
+                                                    centre=(xc[0], yc[0]))
+                        self.tip2, = self.addCircle(parameters2["r_a"],
+                                                    style="m:",
+                                                    centre=(xc[1], yc[1]))
+                        self.lines.append(self.tip1)
                         labels.append("Tip Circle")
                     if self.showRoot.get():
-                        root1, = self.addCircle(parameters1["r_f"], style="y:",
-                                                centre=(xc[0], yc[0]))
-                        root2, = self.addCircle(parameters2["r_f"], style="y:",
-                                                centre=(xc[1], yc[1]))
-                        lines.append(root1)
+                        self.root1, = self.addCircle(parameters1["r_f"],
+                                                     style="y:",
+                                                     centre=(xc[0], yc[0]))
+                        self.root2, = self.addCircle(parameters2["r_f"],
+                                                     style="y:",
+                                                     centre=(xc[1], yc[1]))
+                        self.lines.append(self.root1)
                         labels.append("Root Circle")
                     if self.showCentres.get():
                         self.lineOfCentres = InfiniteLine(self.axis, "b", y=0,
                                                           connect=False)
-                        lines.append(self.lineOfCentres.line)
+                        self.lines.append(self.lineOfCentres.line)
                         labels.append("Line of Centres")
                     if self.showAction.get():
                         def f(x):
                             return (- x /
-                                    math.tan(math.radians(parameters1["alpha"])))
+                                    numpy.tan(numpy.radians(parameters1["alpha"])))
                             
                         self.lineOfAction = InfiniteLine(self.axis, "g", y=f,
                                                          connect=False)
-                        lines.append(self.lineOfAction.line)
+                        self.lines.append(self.lineOfAction.line)
                         labels.append("Line of Action")
                     if self.showNormal.get():
                         self.normal = InfiniteLine(self.axis, "m", x=0,
                                                    connect=False)
-                        lines.append(self.normal.line)
+                        self.lines.append(self.normal.line)
                         labels.append("Normal")
 
                     if self.showCentrePoints.get():
-                        self.axis.plot(- parameters1["r"], 0, "bo")
-                        self.axis.plot(parameters2["r"], 0, "bo")
+                        centrePoints, = self.axis.plot([- parameters1["r"],
+                                                        parameters2["r"]],
+                                                       [0, 0], "bo")
+                        self.points.append(centrePoints)
                     if self.showPitchPoint.get():
-                        self.axis.plot(0, 0, "bo")
+                        pitchPoint, = self.axis.plot(0, 0, "bo")
+                        self.points.append(pitchPoint)
                     if self.showActionPoints.get():
-                        self.axis.plot(xa, ya, "go")
+                        actionPoints, = self.axis.plot(xa, ya, "go")
+                        self.points.append(actionPoints)
 
                     self.axis.callbacks.connect('xlim_changed',
                                                 self.updateLimits)
@@ -269,23 +298,28 @@ class GearGUI(tk.Tk):
                     self.gear2, = self.axis.plot(x2[:], y2[:], "r")
 
                     # Adjust the number of columns of the legend
-                    if len(lines) > 6:
+                    if len(self.lines) > 6:
                         cols = 4
-                    elif len(lines) > 4 or len(lines) == 3:
+                    elif len(self.lines) > 4 or len(self.lines) == 3:
                         cols = 3
                     else:
                         cols = 2
 
                     # Update the legend
-                    self.axis.legend(lines, labels, loc='upper center',
+                    self.axis.legend(self.lines, labels, loc='upper center',
                                      bbox_to_anchor=(0.5, -0.075),
                                      fancybox=True, shadow=True, ncol=cols)
 
                     # Hide the legend if it is empty
-                    self.axis.get_legend().set_visible(len(lines) != 0)
+                    self.axis.get_legend().set_visible(len(self.lines) != 0)
 
-                    # Start the animation loop
-                    self.after(5, self.animate)
+                    # Disable the autoscaling to work with the animation
+                    #self.axis.autoscale(False)
+
+                    # Start the animation
+                    self.ani = animation.FuncAnimation(self.figure,
+                                                       self.animate,
+                                                       interval=1, blit=False)
                 else:
                     messagebox.showinfo("Incompatible Gears",
 """Incompatible Gears.
@@ -310,43 +344,44 @@ In order 2 for gears to mesh they must have the same module and pressure angle."
                     self.setTitle(fileName.split("/")[-1].split(".")[0])
 
                 # Lines and labels to be passed to the legend
-                lines = []
+                self.lines = []
+                self.points = []
                 labels = []
 
                 # Add the circles to the graph
                 if self.showRef.get():
-                    ref, = self.addCircle(parameters["r"], style="b:")
-                    lines.append(ref)
+                    self.ref, = self.addCircle(parameters["r"], style="b:")
+                    self.lines.append(self.ref)
                     labels.append("Reference Circle")
                 if self.showBase.get():
-                    base, = self.addCircle(parameters["r_b"], style="g:")
-                    lines.append(base)
+                    self.base, = self.addCircle(parameters["r_b"], style="g:")
+                    self.lines.append(self.base)
                     labels.append("Base Circle")
                 if self.showTip.get():
-                    tip, = self.addCircle(parameters["r_a"], style="m:")
-                    lines.append(tip)
+                    self.tip, = self.addCircle(parameters["r_a"], style="m:")
+                    self.lines.append(self.tip)
                     labels.append("Tip Circle")
                 if self.showRoot.get():
-                    root, = self.addCircle(parameters["r_f"], style="y:")
-                    lines.append(root)
+                    self.root, = self.addCircle(parameters["r_f"], style="y:")
+                    self.lines.append(self.root)
                     labels.append("Root Circle")
 
                 # Plot the points on the gear
                 self.axis.plot(x, y, "r")
 
                 # Adjust the number of columns of the legend to make it look neater
-                if len(lines) == 3:
+                if len(self.lines) == 3:
                     cols = 3
                 else:
                     cols = 2
 
                 # Update the legend
-                self.axis.legend(lines, labels, loc='upper center',
+                self.axis.legend(self.lines, labels, loc='upper center',
                                  bbox_to_anchor=(0.5, -0.075), fancybox=True,
                                  shadow=True, ncol=cols)
 
                 # Hide the legend if it is empty
-                self.axis.get_legend().set_visible(len(lines) != 0)
+                self.axis.get_legend().set_visible(len(self.lines) != 0)
         except PermissionError:
             messagebox.showerror("Permission Error",
 """Permission Error.
@@ -370,6 +405,9 @@ Close the program and try again.""")
         except:
             pass
 
+        # Restart the animation
+        self.after(500, self.restartAnimation)
+                    
     def updateLimits(self, *args, **kwargs):
         # Try to update the limits on each of the infinite lines
         try:
@@ -388,6 +426,11 @@ Close the program and try again.""")
             pass
 
     def exportImage(self, *args, **kwargs):
+        # Record the status of the animation (on / off)
+        if self.animationStatus == None:
+            self.animationStatus = self.animationOn.get()
+        self.animationOn.set(False)
+            
         if "linewidth" in kwargs.keys():
             linewidth = kwargs["linewidth"]
         else:
@@ -424,6 +467,7 @@ Close the program and try again.""")
         axes = plt.Axes(fig, [0., 0., 1., 1.])
         axes.set_axis_off()
         axes.margins(0, 0)
+        axes.axis("equal")
         fig.add_axes(axes)
 
         # Plot the gear points on the axes
@@ -456,8 +500,8 @@ Close the program and try again.""")
         fileName = asksaveasfilename(parent=self,
                                      initialdir=os.getcwd() + "\\images",
                                      initialfile=fileName,
-                                     filetypes=[("PNG image", "*.png"),
-                                                ("JPEG image", "*.jpg")],
+                                     filetypes=[("PNG Image", "*.png"),
+                                                ("JPEG Image", "*.jpg")],
                                      defaultextension=".png")
 
         if fileName != "":
@@ -476,8 +520,14 @@ Close the program and try again.""")
 
             imageViewer = ImageViewer(self, fileName)
 
+            # Restart the animation
+            self.after(500, self.restartAnimation)
+
             return True
         else:
+            # Restart the animation
+            self.after(500, self.restartAnimation)
+            
             return False
 
     def animate(self, *args, **kwargs):
@@ -490,39 +540,34 @@ Close the program and try again.""")
             ratio = self.parameters1["z"] / self.parameters2["z"]
 
             # Rotate the points
-            x1, y1 = rotatePointList(x1, y1,
-                - self.parameters1["p"] / (10 * self.parameters1["r"]),
-                (-self.parameters1["r"], 0))
-            x2, y2 = rotatePointList(x2, y2,
-                ratio * self.parameters1["p"] / (10 * self.parameters1["r"]),
-                (self.parameters2["r"], 0))
+            if self.parameters1["z"] < self.parameters2["z"]:
+                x1, y1 = rotatePointList(x1, y1,
+                    - 0.05,
+                    (-self.parameters1["r"], 0))
+                x2, y2 = rotatePointList(x2, y2,
+                    ratio * 0.05,
+                    (self.parameters2["r"], 0))
+            else:
+                x1, y1 = rotatePointList(x1, y1,
+                    - 0.05 / ratio,
+                    (-self.parameters1["r"], 0))
+                x2, y2 = rotatePointList(x2, y2,
+                    0.05,
+                    (self.parameters2["r"], 0))
 
             # Update the points
             self.gear1.set_data(x1, y1)
             self.gear2.set_data(x2, y2)
 
-            # Update the canvas to show the new points
-            self.canvas.draw()
-        
-            # Rebind the loop to create an animation
-            self.after(5, self.animate)
-
-    def updateAnimation(self, *args, **kwargs):
-        if "animation" in kwargs.keys():
-            if kwargs["animation"]:
-                self.animationOn.set(kwargs["animation"])
-                
-                if self.animationOn.get():
-                    # Start the animation loop
-                    self.after(5, self.animate)
+        lines = []
+        for line in self.lines:
+            if type(line) != tuple or type(line) != list:
+                lines.append(line)
             else:
-                self.animationOn.set(False)
-        elif not self.animationOn.get():
-            self.animationOn.set(True)
-            # Start the animation loop
-            self.after(5, self.animate)
-        else:
-            self.animationOn.set(False)
+                for l in line:
+                    lines.append(l)
+
+        return (self.gear1, self.gear2, *lines, *self.points)
 
     def restartAnimation(self, *args, **kwargs):
         if self.animationStatus != None:
@@ -574,7 +619,7 @@ Close the program and try again.""")
         # Change the title of the plot
         self.axis.set_title(text)
 
-    def addCircle(self, r, style=None, centre=(0, 0)):
+    def addCircle(self, r, style=None, centre=(0, 0), line=None, new=True):
         # Generate the list of points on the circle of radius r
         x, y = circlePoints(r, 0.01)
 
@@ -590,23 +635,39 @@ Close the program and try again.""")
         if style == None:
             style = "r"
 
-        # Plot the points onto the graph
-        return self.axis.plot(x, y, style)
+        if new:
+            # Plot the points onto the graph
+            return self.axis.plot(x, y, style)
+        else:
+            if line != None:
+                self.line.set_xdata(x)
+                self.line.set_ydata(y)
 
     def trochoid(self, t, R, x_0, y_0):
         # A function to generate the root fillet curve
-        x = ((R + x_0) * math.cos(t) + (R * t + y_0) * math.sin(t))
-        y = (- (R + x_0) * math.sin(t) + (R * t + y_0) * math.cos(t))
+        x = ((R + x_0) * numpy.cos(t) + (R * t + y_0) * numpy.sin(t))
+        y = (- (R + x_0) * numpy.sin(t) + (R * t + y_0) * numpy.cos(t))
 
         return (x, y)
 
     def generateGear(self, *args, **kwargs):
+        # Record the status of the animation (on / off)
+        if self.animationStatus == None:
+            self.animationStatus = self.animationOn.get()
+        self.animationOn.set(False)
+            
         z = kwargs["z"]
         alpha = kwargs["alpha"]
         m = kwargs["m"]
         backlash = kwargs["backlash"]
         addendum = kwargs["addendum"]
         dedendum = kwargs["dedendum"]
+
+        if z < 4:
+            messagebox.showerror("Input Error",
+"""Input Error.
+The gear cannot be generated because it has too few teeth.""")
+            return False
         
         try:
             # Calculate the parameters for the gear
@@ -614,7 +675,7 @@ Close the program and try again.""")
                                              dedendum)
 
             # Calculate the points on the gear
-            x, y = self.gearPoints(parameters, 0.075)
+            x, y = self.gearPoints(parameters, 0.05 * m)
 
             # This adds the list of x and y values in coordinate form
             points = list(zip(x, y))
@@ -639,6 +700,9 @@ The gear cannot be saved because the file is already open in another program."""
         except:
             raise
 
+        # Restart the animation
+        self.after(500, self.restartAnimation)
+
         return False
 
     def gearPoints(self, parameters, step):
@@ -649,23 +713,51 @@ The gear cannot be saved because the file is already open in another program."""
             + 2 * (involute(getAlpha(parameters["r_b"], parameters["r"]))
             - involute(getAlpha(parameters["r_b"], parameters["r_b"])))))
 
-        # If the base radius is smaller than the dedendum
-        # set the cut off radius to the dedendum
+        # Calculate the point used to generate the trochoid curve
+        x_0 = - (parameters["h_a"] + parameters["c"])
+        y_0 = (0.25 * numpy.pi * parameters["m"]
+               + x_0 * numpy.tan(numpy.radians(parameters["alpha"])))
+
+        # Calculate the radius where the involute and trochoid curves meet
         if parameters["r_f"] > parameters["r_b"]:
             R = parameters["r_f"]
         else:
             R = parameters["r_b"]
+            
+            diff = 2 * numpy.pi
+            values = []
+            # Generate the first part of the trochoid curve
+            for theta in numpy.arange(- y_0 / parameters["r"], numpy.pi,
+                                      3 * getDeltaTheta(parameters["r_b"],
+                                                        step)):
+                point = self.trochoid(- theta, parameters["r"], x_0, - y_0)
+                point = rotate(point, parameters["angle"]
+                               - (parameters["j_t"] / parameters["d"])
+                               - 2 * numpy.pi, (0, 0))
 
-        # Calculate the point used to generate the trochoid curve
-        x_0 = - (parameters["h_a"] + parameters["c"])
-        y_0 = (0.25 * math.pi * parameters["m"]
-               + x_0 * math.tan(math.radians(parameters["alpha"])))
+                r, angle = getPolar(*point)
+
+                if r > parameters["r_b"]:
+                    try:
+                        alpha = getAlpha(parameters["r_b"], r)
+                        if alpha != None:
+                            inv = (involute(-alpha) + parameters["angle"]
+                                   - gap / 2)
+
+                            if abs(angle - inv) < diff:
+                                diff = abs(alpha - inv)
+                                values.append(r)
+                    except:
+                        pass
+
+            if len(values) != 0:
+                R = values[0]
 
         x = []
         y = []
         for i in range(parameters["z"]):
             # Generate the first part of the involute curve
-            for r in frange(R, parameters["r_a"], step):
+            for r in numpy.arange(R, parameters["r_a"], step):
                 alpha = getAlpha(parameters["r_b"], r)
                 
                 point = points(r, alpha)
@@ -692,17 +784,17 @@ The gear cannot be saved because the file is already open in another program."""
             m_1 = (point1[1] - point2[1]) / (point1[0] - point2[0])
 
             # Generate the top of the tooth
-            for theta in frange((parameters["angle"] * i) + gap / 2
-                                + (involute(getAlpha(parameters["r_b"],
-                                                     parameters["r_a"]))
-                                   - involute(getAlpha(parameters["r_b"],
-                                                       parameters["r_b"]))),
-                                (parameters["angle"] * (i + 1)) - gap / 2
-                                - (involute(getAlpha(parameters["r_b"],
-                                                     parameters["r_a"]))
-                                   - involute(getAlpha(parameters["r_b"],
-                                                       parameters["r_b"]))),
-                                getDeltaTheta(parameters["r_a"], step)):
+            for theta in numpy.arange((parameters["angle"] * i) + gap / 2
+                                      + (involute(getAlpha(parameters["r_b"],
+                                                           parameters["r_a"]))
+                                         - involute(getAlpha(parameters["r_b"],
+                                                             parameters["r_b"]))),
+                                      (parameters["angle"] * (i + 1)) - gap / 2
+                                      - (involute(getAlpha(parameters["r_b"],
+                                                           parameters["r_a"]))
+                                         - involute(getAlpha(parameters["r_b"],
+                                                             parameters["r_b"]))),
+                                      getDeltaTheta(parameters["r_a"], step)):
                 point3 = getCartesian(parameters["r_a"], theta)
 
                 m_2 = point3[1] / point3[0]
@@ -714,7 +806,7 @@ The gear cannot be saved because the file is already open in another program."""
                 y.append(point[1])
             
             # Generate the second part of the involute curve
-            for r in frange(parameters["r_a"], R, step):
+            for r in numpy.arange(parameters["r_a"], R, -step):
                 alpha = getAlpha(parameters["r_b"], r)
                 
                 point = points(r, -alpha)
@@ -723,23 +815,33 @@ The gear cannot be saved because the file is already open in another program."""
 
                 x.append(point[0])
                 y.append(point[1])
+
+            # Add the point which lies on R
+            alpha = getAlpha(parameters["r_b"], R)
+                
+            point = points(R, -alpha)
+            point = rotate(point, (parameters["angle"] * (i + 1)) - gap / 2,
+                           (0, 0))
+
+            x.append(point[0])
+            y.append(point[1])
             
-            if R == parameters["r_b"]:
+            if R != parameters["r_f"]:
                 # Generate the first part of the trochoid curve
-                for theta in frange(math.pi, - y_0 / parameters["r"],
-                                    3 * getDeltaTheta(parameters["r_b"], step)):
+                for theta in numpy.arange(numpy.pi, - y_0 / parameters["r"],
+                                          - getDeltaTheta(parameters["r_b"],
+                                                            step)):
                     point = self.trochoid(- theta, parameters["r"], x_0, - y_0)
                     point = rotate(point, (parameters["angle"] * (i + 1))
                                    - (parameters["j_t"] / parameters["d"])
-                                   - 2 * math.pi, (0, 0))
+                                   - 2 * numpy.pi, (0, 0))
 
                     r, angle = getPolar(*point)
                         
                     if r < parameters["r_f"] or theta < - y_0 / parameters["r"]:
                         point = getCartesian(parameters["r_f"], angle)
 
-                    if (r < parameters["r_b"]
-                        and angle < parameters["angle"] * (i + 1)):
+                    if r < R and angle < parameters["angle"] * (i + 1):
                         x.append(point[0])
                         y.append(point[1])
 
@@ -747,49 +849,51 @@ The gear cannot be saved because the file is already open in another program."""
                 point = self.trochoid(y_0 / parameters["r"],
                                       parameters["r"], x_0, - y_0)
                 point = rotate(point, (parameters["angle"] * (i + 1))
-                               - 2 * math.pi, (0, 0))
+                               - 2 * numpy.pi, (0, 0))
                 r, angle1 = getPolar(*point)
                 point = self.trochoid(- y_0 / parameters["r"],
                                       parameters["r"], x_0, y_0)
                 point = rotate(point, (parameters["angle"] * (i + 1))
-                               - 2 * math.pi, (0, 0))
+                               - 2 * numpy.pi, (0, 0))
                 r, angle2 = getPolar(*point)
 
                 # Adjust the angles to get the correct range
                 if angle1 > angle2:
-                    angle1 -= 2 * math.pi
+                    angle1 -= 2 * numpy.pi
 
                 # Generate the curve between the teeth
-                for theta in frange(angle1, angle2,
-                                    getDeltaTheta(parameters["r_f"], step)):
+                for theta in numpy.arange(angle1, angle2,
+                                          getDeltaTheta(parameters["r_f"], step)):
                     point = getCartesian(parameters["r_f"], theta)
 
                     x.append(point[0])
                     y.append(point[1])
 
                 # Generate the second part of the trochoid curve
-                for theta in frange(- y_0 / parameters["r"], math.pi,
-                                    3 * getDeltaTheta(parameters["r_b"], step)):
+                for theta in numpy.arange(- y_0 / parameters["r"], numpy.pi,
+                                          getDeltaTheta(parameters["r_b"],
+                                                            step)):
                     point = self.trochoid(theta, parameters["r"], x_0, y_0)
                     point = rotate(point, (parameters["angle"] * (i + 1))
                                    + (parameters["j_t"] / parameters["d"])
-                                   - 2 * math.pi, (0, 0))
+                                   - 2 * numpy.pi, (0, 0))
 
                     r, angle = getPolar(*point)
                         
                     if r < parameters["r_f"] or theta < - y_0 / parameters["r"]:
                         point = getCartesian(parameters["r_f"], angle)
 
-                    if (r < parameters["r_b"]
-                        and angle > parameters["angle"] *
-                        ((i + 1) % parameters["z"])):
+                    if (r < R and angle > parameters["angle"]
+                        * ((i + 1) % parameters["z"])):
                         x.append(point[0])
                         y.append(point[1])
             else:
                 # Generate the curve between the teeth
-                for theta in frange((parameters["angle"] * (i + 1)) - gap / 2,
-                                    (parameters["angle"] * (i + 1)) + gap / 2,
-                                    getDeltaTheta(R, step)):
+                for theta in numpy.arange((parameters["angle"] * (i + 1))
+                                          - gap / 2,
+                                          (parameters["angle"] * (i + 1))
+                                          + gap / 2,
+                                          getDeltaTheta(R, step)):
                     point = getCartesian(R, theta)
 
                     x.append(point[0])
@@ -803,12 +907,14 @@ The gear cannot be saved because the file is already open in another program."""
 
 class InputFrame(tk.Toplevel):
     def __init__(self, parent, *args, defaults=None, **kwargs):
-        tk.Toplevel.__init__(self, *args, **kwargs)
+        tk.Toplevel.__init__(self, *args, master=parent, **kwargs)
         self.title("New Gear")
         self.resizable(False, False)
+        self.grab_set()
 
-        # Save the parent for later use
-        self.master = parent
+        # Bind the protocol to close the window
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
+        self.bind("<Escape>", self.closeWindow)
 
         # Create frames to organise the widgets
         self.inputFrame = tk.Frame(self)
@@ -873,9 +979,6 @@ class InputFrame(tk.Toplevel):
         self.button = ttk.Button(self.buttonFrame, text="Generate Gear",
                                  command=self.generateGear)
         self.button.pack(pady=2)
-
-        # Bind the escape key to close the window
-        self.bind("<Escape>", self.closeWindow)
 
         # Bring the frame into focus
         self.focus_force()
@@ -945,7 +1048,7 @@ The addendum should be smaller than the dedendum.""")
                                         backlash=backlash, addendum=addendum,
                                         dedendum=dedendum):
                 # Close the window if successful
-                self.destroy()
+                self.closeWindow()
             else:
                 # Bring the frame into focus if not
                 self.focus_force()
@@ -961,13 +1064,19 @@ Either some are missing or are in the wrong format.""")
             raise
 
     def closeWindow(self, *args, **kwargs):
+        self.grab_release()
         self.destroy()
 
 class ExportImageFrame(tk.Toplevel):
-    def __init__(self, *args, **kwargs):
-        tk.Toplevel.__init__(self, *args, **kwargs)
+    def __init__(self, parent, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, master=parent, **kwargs)
         self.title("Export as Image")
         self.resizable(False, False)
+        self.grab_set()
+
+        # Bind the protocol to close the window
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
+        self.bind("<Escape>", self.closeWindow)
 
         # Create a list of the possible sizes
         sizes = []
@@ -1003,9 +1112,6 @@ class ExportImageFrame(tk.Toplevel):
         exportButton = ttk.Button(self, text="Export", command=self.export)
         exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
-        # Bind the escape key to close the window
-        self.bind("<Escape>", self.closeWindow)
-
         # Bring the frame into focus
         self.focus_force()
 
@@ -1016,19 +1122,25 @@ class ExportImageFrame(tk.Toplevel):
                                    size=(width, width),
                                    cross=self.showCross.get()):
             # If the export is successful close the window
-            self.destroy()
+            self.closeWindow()
         else:
             # Bring the frame into focus
             self.focus_force()
 
     def closeWindow(self, *args, **kwargs):
+        self.grab_release()
         self.destroy()
 
 class ExportDXFFrame(tk.Toplevel):
-    def __init__(self, *args, defaults=None, **kwargs):
-        tk.Toplevel.__init__(self, *args, **kwargs)
+    def __init__(self, parent, *args, defaults=None, **kwargs):
+        tk.Toplevel.__init__(self, *args, master=parent, **kwargs)
         self.title("Export as DXF")
         self.resizable(False, False)
+        self.grab_set()
+
+        # Bind the protocol to close the window
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
+        self.bind("<Escape>", self.closeWindow)
 
         # Create frames to organise the widgets
         self.inputFrame = tk.Frame(self)
@@ -1069,14 +1181,11 @@ class ExportDXFFrame(tk.Toplevel):
                                   command=self.export)
         exportButton.grid(row=3, column=0, columnspan=2, sticky="ns", pady=2)
 
-        # Bind the escape key to close the window
-        self.bind("<Escape>", self.closeWindow)
-
         # Bring the frame into focus
         self.focus_force()
 
     def export(self, *args, **kwargs):
-        pass
+        self.closeWindow()
 
     def toggleAdvanced(self, *args, **kwargs):
         if "show" in kwargs.keys():
@@ -1109,11 +1218,20 @@ class ExportDXFFrame(tk.Toplevel):
                 pass
 
     def closeWindow(self, *args, **kwargs):
+        self.grab_release()
         self.destroy()
 
 class ImageViewer(tk.Toplevel):
-    def __init__(self, master, fileName, *args, **kwargs):
-        tk.Toplevel.__init__(self, *args, **kwargs)
+    def __init__(self, parent, fileName, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, master=parent, **kwargs)
+        self.grab_set()
+
+        # Bind the protocol to close the window
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
+        self.bind("<Escape>", self.closeWindow)
+
+        # Bind the protocol to resize the window
+        self.bind("<Configure>", self.resize)
         
         if "size" in kwargs.keys():
             size = kwargs["size"]
@@ -1145,10 +1263,6 @@ class ImageViewer(tk.Toplevel):
         self.panel.image = photo
         self.panel.grid(row=0, column=0, sticky="nsew")
 
-        # Bind the events to the window
-        self.bind("<Escape>", self.destroy)
-        self.bind("<Configure>", self.resize)
-
     def resize(self, event):
         # Resize the image is the window is resized
         if event.width < event.height:
@@ -1164,11 +1278,20 @@ class ImageViewer(tk.Toplevel):
         self.panel.config(image=photo)
         self.panel.image = photo
 
+    def closeWindow(self, *args, **kwargs):
+        self.grab_release()
+        self.destroy()
+
 class FormatFrame(tk.Toplevel):  
-    def __init__(self, *args, **kwargs):
-        tk.Toplevel.__init__(self, *args, **kwargs)
+    def __init__(self, parent, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, master=parent **kwargs)
         self.title("Format")
         self.resizable(False, False)
+        self.grab_set()
+
+        # Bind the protocol to close the window
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
+        self.bind("<Escape>", self.closeWindow)
 
         self.gearColourLabel = tk.Label(self, text="Gear Colour: ")
         self.gearColourLabel.grid(row=0, column=0, sticky="e", pady=2)
@@ -1183,16 +1306,9 @@ class FormatFrame(tk.Toplevel):
         self.gearColour.config(background=colour[1])
         self.focus_force()
 
-class LineSelector(tk.Frame):
-    styles = ["solid", "dashed", "dotted", "dashdot"]
-    
-    def __init__(self, parent, *args, **kwargs):
-        tk.Frame.__init__(self, parent, *args, **kwargs)
-
-        self.styleLabel = tk.Label(self, text="Line Style: ")
-        self.styleLabel.grid(row=0, column=0, sticky="e")
-        self.styleCombo = ttk.Combobox(self, values=self.styles)
-        self.styleCombo.grid(row=0, column=1, sticky="ew")
+    def closeWindow(self, *args, **kwargs):
+        self.grab.release()
+        self.destroy()
 
 class MenuBar(tk.Menu):
     def __init__(self, parent, *args, **kwargs):
@@ -1205,6 +1321,8 @@ class MenuBar(tk.Menu):
         # Add the button for each export type
         self.exportMenu.add_command(label="Export as Image",
                                     command=self.exportImage)
+        #self.exportMenu.add_command(label="Export as Video",
+        #                            command=self.exportVideo)
         self.exportMenu.add_command(label="Export as DXF",
                                     command=self.exportDXF)
 
@@ -1228,7 +1346,7 @@ class MenuBar(tk.Menu):
         self.add_cascade(label="File", menu=self.fileMenu)
 
         # Create the format menu
-        self.add_command(label="Format", command=self.format)
+        #self.add_command(label="Format", command=self.format)
 
         # Create the lines menu
         self.linesMenu = tk.Menu(self, tearoff=False)
@@ -1274,7 +1392,6 @@ class MenuBar(tk.Menu):
         self.optionsMenu.add_cascade(label="Lines", menu=self.linesMenu)
         self.optionsMenu.add_cascade(label="Points", menu=self.pointsMenu)
         self.optionsMenu.add_checkbutton(label="Animation",
-                                         command=self.updateAnimation,
                                          variable=self.master.animationOn,
                                          accelerator="Space")
         # Add the sub-menu to the menubar
@@ -1297,7 +1414,8 @@ class MenuBar(tk.Menu):
     def openFile(self, *args, multiple=False, **kwargs):
         if multiple:
             # Ask the user to select the xls files to open
-            fileNames = askopenfilenames(initialdir="data",
+            fileNames = askopenfilenames(parent=self.master,
+                                         initialdir="data",
                                          filetypes=[("Excel 97-2003 Workbook",
                                                      "*.xls")],
                                          defaultextension=".xls")
@@ -1312,7 +1430,8 @@ class MenuBar(tk.Menu):
                 return
         else:
             # Ask the user to select the xls file(s) to open
-            fileName = askopenfilename(initialdir="data",
+            fileName = askopenfilename(parent=self.master,
+                                       initialdir="data",
                                        filetypes=[("Excel 97-2003 Workbook",
                                                    "*.xls")],
                                        defaultextension=".xls")
@@ -1326,29 +1445,58 @@ class MenuBar(tk.Menu):
             self.master.openFile(fileNames)
 
     def openMultiple(self, *args, **kwargs):
-        self.openFile(multiple=True)
+        self.openFile(*args, multiple=True, **kwargs)
 
     def exportImage(self, *args, **kwargs):
-        ExportImageFrame(padx=7, pady=5)
+        ExportImageFrame(self.master, padx=7, pady=5)
+
+    """def exportVideo(self, *args, **kwargs):
+        fileName = asksaveasfilename(parent=self.master,
+                                     initialdir="images",
+                                     filetypes=[("MP4 Video", "*.mp4")],
+                                     defaultextension=".mp4")
+
+        #Writer = animation.writers['ffmpeg']
+        #writer = Writer()
+
+        self.master.ani._stop()
+
+        # Calculate the ratio of speeds
+        ratio = self.master.parameters1["z"] / self.master.parameters2["z"]
+
+        if self.master.parameters1["z"] > self.master.parameters2["z"]:
+            frames = 2 * numpy.pi / (self.master.parameters1["p"]
+                                     / (10 * self.master.parameters1["r"]))
+        else:
+            frames = 2 * numpy.pi / (ratio * self.master.parameters1["p"]
+                                     / (10 * self.master.parameters1["r"]))
+
+        self.master.ani = animation.FuncAnimation(self.master.figure,
+                                                  self.master.animate,
+                                                  frames=int(frames))
+
+        self.master.ani.save(fileName, extra_args=["-vcodec", "libx264"],
+                             dpi=150)
+
+        try:
+            self.master.destroy()
+        except:
+            sys.exit()"""
 
     def exportDXF(self, *args, **kwargs):
-        ExportDXFFrame(padx=7, pady=5, defaults={"beta": 0})
+        ExportDXFFrame(self.master, padx=7, pady=5, defaults={"beta": 0})
 
     def closeWindow(self, *args, **kwargs):
         self.master.destroy()
 
     def format(self, *args, **kwargs):
-        FormatFrame()
+        FormatFrame(self.master)
 
     def updateGraph(self, *args, **kwargs):
         self.master.updateGraph()
 
-    def updateAnimation(self, *args, **kwargs):
-        self.master.updateAnimation(animation=self.master.animationOn.get())
-
     def toggleAnimation(self, *args, **kwargs):
-        self.master.updateAnimation(
-            animation=(not self.master.animationOn.get()))
+        self.master.animationOn.set(not self.master.animationOn.get())
         
 # If this program is being run directly this code will be executed
 # If this program is being imported this code will not be executed
